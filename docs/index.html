@@ -4003,9 +4003,7 @@ document.addEventListener('touchend', (e) => {
   }
   // ====== 账号与云存档胶水层 ======
 
-// 本地记忆 key
-const LS_USER   = 'xiuxian_user';
-const LS_SECRET = 'xiuxian_secret';
+
 
 // 你游戏里的状态导出/导入方法（按你的实际函数替换）
 function exportGameState() {
@@ -4042,17 +4040,19 @@ async function handleLogin() {
   if (!user || !secret) { alert('请填写【道号】与【符密码】'); return; }
 
   // 记住凭证
-  try { localStorage.setItem(LS_USER, user); localStorage.setItem(LS_SECRET, secret); } catch(e){}
+  try {
+    localStorage.setItem(LS_USER, user);
+    localStorage.setItem(LS_SECRET, secret);
+  } catch (e) {}
 
   // 拉取云端存档
   try {
     const data = await cloudLoad(user, secret);
     if (data) {
-      importGameState(data);
+      if (typeof importGameState === 'function') importGameState(data);
       console.log('[cloud] load ok:', data);
-      // TODO: 这里可以进入游戏主场景/刷新 UI
-      // enterGame();
       alert('云存档加载成功！');
+      // TODO: enterGame();
     } else {
       console.log('[cloud] no data yet, start new');
       alert('云端暂无存档，将从新档开始。');
@@ -4069,7 +4069,9 @@ async function handleSave() {
   const secret = ($secret?.value || '').trim() || localStorage.getItem(LS_SECRET);
   if (!user || !secret) { alert('尚未登录（需要道号与符密码）'); return; }
 
-  const data = exportGameState();
+  const data = (typeof exportGameState === 'function') ? exportGameState() : null;
+  if (!data) { alert('没有可保存的数据'); return; }
+
   try {
     const r = await cloudSave(user, secret, data);
     if (r?.ok) {
@@ -4088,22 +4090,65 @@ async function handleSave() {
 $btnLogin?.addEventListener('click', handleLogin);
 $btnSave?.addEventListener('click', handleSave);
 
-// 可选：在退出页面前自动保存一次（需要已登录）
-window.addEventListener('beforeunload', (e) => {
-  const u = localStorage.getItem(LS_USER);
-  const s = localStorage.getItem(LS_SECRET);
-  if (!u || !s) return;
-  navigator.sendBeacon?.(
-    `${API_BASE}/api/save`,
-    new Blob([JSON.stringify({ user: u, secret: s, data: exportGameState() })],
-             { type: 'application/json' })
-  );
-});
-
 // 如果你希望在控制台也能直接调试：
 window.cloudSave = cloudSave;
 window.cloudLoad = cloudLoad;
 
+// ===== 自动云存档（跨设备） =====
+const LS_USER   = 'xiuxian_user';
+const LS_SECRET = 'xiuxian_secret';
+
+// 启动自动加载（如果本地已经存过账号+密钥）
+(async function autoCloudBoot() {
+  try {
+    const u = localStorage.getItem(LS_USER) || '';
+    const s = localStorage.getItem(LS_SECRET) || '';
+    if (!u || !s) return;
+
+    const data = await cloudLoad(u, s);
+    if (data && typeof importGameState === 'function') {
+      importGameState(data);
+      console.log('[cloud] auto load ok:', data);
+    }
+  } catch (err) {
+    console.warn('[cloud] auto load failed:', err);
+  }
+})();
+
+// 每 60s 自动保存一次（确保整站仅此一处 setInterval）
+const SAVE_INTERVAL_MS = 60_000;
+setInterval(async () => {
+  try {
+    const u = localStorage.getItem(LS_USER) || '';
+    const s = localStorage.getItem(LS_SECRET) || '';
+    if (!u || !s) return;
+
+    const data = (typeof exportGameState === 'function') ? exportGameState() : null;
+    if (!data) return;
+
+    const r = await cloudSave(u, s, data);
+    if (!r || !r.ok) throw new Error('save not ok');
+    console.log('[cloud] auto save ok:', r.updatedAt);
+  } catch (err) {
+    console.warn('[cloud] auto save failed:', err);
+  }
+}, SAVE_INTERVAL_MS);
+
+// 关闭页面兜底保存（sendBeacon）——只保留这一份
+window.addEventListener('beforeunload', () => {
+  try {
+    const u = localStorage.getItem(LS_USER) || '';
+    const s = localStorage.getItem(LS_SECRET) || '';
+    if (!u || !s) return;
+
+    const data = (typeof exportGameState === 'function') ? exportGameState() : null;
+    if (!data) return;
+
+    const url = `${API_BASE}/api/save`;
+    const payload = JSON.stringify({ user: u, secret: s, data });
+    navigator.sendBeacon(url, new Blob([payload], { type: 'application/json' }));
+  } catch {}
+});
 let users = JSON.parse(localStorage.getItem(LS_USERS) || '{}');
 let currentUser = null;
 let gameState = null;
