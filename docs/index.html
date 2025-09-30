@@ -4050,6 +4050,7 @@ async function handleLogin() {
     const data = await cloudLoad(user, secret);
     if (data) {
       if (typeof importGameState === 'function') importGameState(data);
+      _writeLocalMirror(user, data);
       console.log('[cloud] load ok:', data);
       alert('云存档加载成功！');
       // TODO: enterGame();
@@ -4179,6 +4180,7 @@ const LS_SECRET = 'xiuxian_secret';
     const data = await cloudLoad(u, s);
     if (data && typeof importGameState === 'function') {
       importGameState(data);
+      _writeLocalMirror(user, data);
       console.log('[cloud] auto load ok:', data);
     }
   } catch (err) {
