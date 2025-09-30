@@ -1,0 +1,4293 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, orientation=landscape">
+    <title>修仙之路 - 萬劍歸宗</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+            touch-action: none;
+        }
+        
+        body {
+            background: #1a1a2e;
+            color: white;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+            overflow: hidden;
+            position: fixed;
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* 強制橫屏提示 */
+        .rotate-screen {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #1a1a2e;
+            z-index: 9999;
+            color: white;
+            font-size: 20px;
+            text-align: center;
+            padding: 20px;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .rotate-icon {
+            font-size: 60px;
+            animation: rotate 2s infinite;
+            margin-bottom: 20px;
+        }
+        
+        @keyframes rotate {
+            0% { transform: rotate(0deg); }
+            50% { transform: rotate(90deg); }
+            100% { transform: rotate(90deg); }
+        }
+        
+        @media screen and (orientation: portrait) {
+            .rotate-screen {
+                display: flex;
+            }
+            #gameContainer {
+                display: none;
+            }
+        }
+        
+        #gameContainer {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+        
+        #gameCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #1a1a2e;
+        }
+        
+        /* 預載圖片 - 隱藏但確保載入 */
+        .sprite-preload {
+            position: absolute;
+            left: -9999px;
+            top: -9999px;
+            width: 1px;
+            height: 1px;
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        /* 頂部狀態欄 - 適配橫屏 */
+        .top-status {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 40px;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.9), rgba(0,0,0,0.3));
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 15px;
+            z-index: 100;
+        }
+        
+        .player-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .realm-badge {
+            background: linear-gradient(135deg, #ffd700, #ffed4e);
+            color: #333;
+            padding: 3px 10px;
+            border-radius: 15px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        
+        .lingshi-display {
+            background: linear-gradient(135deg, #9c27b0, #e91e63);
+            padding: 3px 10px;
+            border-radius: 15px;
+            font-size: 11px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .resource-bars {
+            flex: 1;
+            max-width: 180px;
+        }
+        
+        .mini-bar {
+            height: 6px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 2px 0;
+            position: relative;
+        }
+        
+        .mini-bar-fill {
+            height: 100%;
+            transition: width 0.3s;
+        }
+        
+        .mana-fill { background: linear-gradient(90deg, #2196f3, #00bcd4); }
+        .spiritual-fill { background: linear-gradient(90deg, #9c27b0, #e91e63); }
+        
+        /* 虛擬搖桿 */
+        .joystick-container {
+            position: fixed;
+            left: 20px;
+            bottom: 20px;
+            width: 120px;
+            height: 120px;
+            z-index: 200;
+        }
+        
+        .joystick-base {
+            position: absolute;
+            width: 120px;
+            height: 120px;
+            background: radial-gradient(circle, rgba(255,255,255,0.1), rgba(255,255,255,0.02));
+            border: 3px solid rgba(255,255,255,0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .joystick-stick {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background: radial-gradient(circle, #4a90e2, #357abd);
+            border: 2px solid rgba(255,255,255,0.4);
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(74, 144, 226, 0.5);
+            transition: none;
+            cursor: grab;
+        }
+        
+        .joystick-stick.active {
+            cursor: grabbing;
+            box-shadow: 0 0 20px rgba(74, 144, 226, 0.8);
+        }
+        
+        /* 右側技能按鈕 - 適配橫屏 */
+        .skill-buttons {
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
+            display: grid;
+            grid-template-columns: repeat(3, 60px);
+            grid-template-rows: repeat(2, 60px);
+            gap: 10px;
+            z-index: 200;
+        }
+        
+        .skill-btn {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #2a2a3e, #3a3a4e);
+            border: 2px solid rgba(255,255,255,0.2);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+        
+        .skill-btn.attack {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            border-color: #e74c3c;
+        }
+        
+        .skill-btn.defense {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            border-color: #3498db;
+        }
+        
+        .skill-btn.special {
+            background: linear-gradient(135deg, #f39c12, #e67e22);
+            border-color: #f39c12;
+        }
+        
+        .skill-btn.magic {
+            background: linear-gradient(135deg, #9b59b6, #8e44ad);
+            border-color: #9b59b6;
+            box-shadow: 0 0 10px rgba(155, 89, 182, 0.5);
+        }
+        
+        .skill-btn:active {
+            transform: scale(0.92);
+        }
+        
+        .skill-icon {
+            font-size: 20px;
+            filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5));
+        }
+        
+        .skill-name {
+            font-size: 9px;
+            color: rgba(255,255,255,0.9);
+            font-weight: 500;
+        }
+        
+        .cooldown-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            border-radius: 10px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        
+        .cooldown-overlay.active {
+            display: flex;
+        }
+        
+        /* 法術菜單 - 適配橫屏 */
+        .spell-menu {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            width: 80%;
+            max-width: 600px;
+            max-height: 90vh;
+            background: linear-gradient(135deg, #1e1e2e, #2d2d3f);
+            border: 3px solid #9b59b6;
+            border-radius: 20px;
+            padding: 15px;
+            z-index: 1001;
+            transition: transform 0.3s ease;
+            overflow-y: auto;
+            box-shadow: 0 0 50px rgba(155, 89, 182, 0.8);
+        }
+        
+        .spell-menu.show {
+            transform: translate(-50%, -50%) scale(1);
+        }
+        
+        .spell-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid rgba(155, 89, 182, 0.3);
+        }
+        
+        .spell-title {
+            font-size: 20px;
+            color: #ffd700;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .close-spell-menu {
+            width: 30px;
+            height: 30px;
+            background: rgba(255,255,255,0.1);
+            border: 2px solid rgba(255,255,255,0.2);
+            border-radius: 50%;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+        
+        .close-spell-menu:hover {
+            background: rgba(255,255,255,0.2);
+            transform: rotate(90deg);
+        }
+        
+        .spell-item {
+            background: rgba(255,255,255,0.05);
+            border: 2px solid rgba(155, 89, 182, 0.3);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 10px;
+            transition: all 0.3s;
+        }
+        
+        .spell-item:hover {
+            background: rgba(155, 89, 182, 0.1);
+            border-color: rgba(155, 89, 182, 0.5);
+            transform: translateX(5px);
+        }
+        
+        .spell-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .spell-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .spell-icon-large {
+            font-size: 28px;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+        }
+        
+        .spell-details {
+            flex: 1;
+        }
+        
+        .spell-name {
+            font-size: 16px;
+            font-weight: bold;
+            color: #fff;
+            margin-bottom: 4px;
+        }
+        
+        .spell-level {
+            display: inline-block;
+            background: linear-gradient(135deg, #ffd700, #ffed4e);
+            color: #333;
+            padding: 2px 6px;
+            border-radius: 8px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+        
+        .spell-upgrade-btn {
+            background: linear-gradient(135deg, #27ae60, #229954);
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 3px 10px rgba(39, 174, 96, 0.4);
+        }
+        
+        .spell-upgrade-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(39, 174, 96, 0.6);
+        }
+        
+        .spell-upgrade-btn:disabled {
+            background: linear-gradient(135deg, #555, #333);
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        
+        .spell-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin: 10px 0;
+            padding: 8px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+        }
+        
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+        }
+        
+        .stat-label {
+            color: #aaa;
+        }
+        
+        .stat-value {
+            color: #4caf50;
+            font-weight: bold;
+        }
+        
+        .stat-value.highlight {
+            color: #ffd700;
+            text-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
+        }
+        
+        .spell-description {
+            font-size: 11px;
+            color: #999;
+            line-height: 1.3;
+            margin-top: 8px;
+            padding: 8px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 6px;
+        }
+        
+        .upgrade-cost {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .cost-label {
+            font-size: 11px;
+            color: #ff9800;
+        }
+        
+        .cost-value {
+            font-size: 14px;
+            color: #ffd700;
+            font-weight: bold;
+        }
+        
+        /* 遮罩 */
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 1000;
+            display: none;
+            backdrop-filter: blur(5px);
+        }
+        
+        .overlay.show {
+            display: block;
+        }
+        
+        /* 戰鬥日誌 - 橫屏位置 */
+        .combat-log {
+            position: fixed;
+            top: 50px;
+            right: 10px;
+            width: 180px;
+            max-height: 80px;
+            background: rgba(0,0,0,0.5);
+            border-radius: 8px;
+            padding: 8px;
+            overflow-y: auto;
+            z-index: 50;
+            font-size: 10px;
+        }
+        
+        /* PC控制提示 */
+        .pc-controls {
+            position: fixed;
+            top: 50px;
+            left: 10px;
+            background: rgba(0,0,0,0.5);
+            padding: 8px;
+            border-radius: 8px;
+            font-size: 10px;
+            color: #999;
+            z-index: 50;
+        }
+        
+        /* 底部功能按鈕 */
+        .bottom-function-buttons {
+            position: fixed;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 8px;
+            z-index: 150;
+        }
+        
+        .function-btn {
+            width: 55px;
+            height: 55px;
+            background: linear-gradient(135deg, #ff9800, #f57c00);
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 2px 10px rgba(255, 152, 0, 0.4);
+        }
+        
+        .function-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(255, 152, 0, 0.6);
+        }
+        
+        .function-btn:active {
+            transform: scale(0.95);
+        }
+        
+        .function-icon {
+            font-size: 20px;
+            filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5));
+        }
+        
+        .function-name {
+            font-size: 9px;
+            color: white;
+            font-weight: 600;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+        }
+        
+        /* 通用系統面板樣式 */
+        .system-panel {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            width: 85%;
+            max-width: 700px;
+            height: 85vh;
+            max-height: 500px;
+            background: linear-gradient(135deg, #2a2a3e, #1a1a2e);
+            border: 3px solid;
+            border-radius: 20px;
+            padding: 20px;
+            z-index: 1001;
+            transition: transform 0.3s ease;
+            overflow-y: auto;
+            display: none;
+        }
+        
+        .system-panel.show {
+            display: block;
+            transform: translate(-50%, -50%) scale(1);
+        }
+        
+        .system-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid rgba(255,255,255,0.2);
+        }
+        
+        .system-panel-title {
+            font-size: 22px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .close-btn {
+            width: 30px;
+            height: 30px;
+            background: rgba(255,255,255,0.1);
+            border: 2px solid rgba(255,255,255,0.2);
+            border-radius: 50%;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+        
+        .close-btn:hover {
+            background: rgba(255,255,255,0.2);
+            transform: rotate(90deg);
+        }
+        
+        /* 儲物袋系統 */
+        #storagePanel {
+            border-color: #9c27b0;
+            box-shadow: 0 0 30px rgba(156, 39, 176, 0.5);
+        }
+        
+        #storagePanel .system-panel-title {
+            color: #e1bee7;
+        }
+        
+        .storage-grid {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 5px;
+            margin-bottom: 15px;
+        }
+        
+        .storage-slot {
+            aspect-ratio: 1;
+            background: rgba(255,255,255,0.05);
+            border: 2px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s;
+        }
+        
+        .storage-slot:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: rgba(255,255,255,0.3);
+        }
+        
+        .item-icon {
+            font-size: 24px;
+        }
+        
+        .item-count {
+            position: absolute;
+            bottom: 2px;
+            right: 2px;
+            background: rgba(0,0,0,0.7);
+            color: #ffd700;
+            font-size: 10px;
+            padding: 1px 3px;
+            border-radius: 3px;
+        }
+        
+        /* 煉丹系統 */
+        #alchemyPanel {
+            border-color: #4caf50;
+            box-shadow: 0 0 30px rgba(76, 175, 80, 0.5);
+        }
+        
+        #alchemyPanel .system-panel-title {
+            color: #a5d6a7;
+        }
+        
+        .alchemy-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .recipe-list {
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+            padding: 10px;
+            max-height: 350px;
+            overflow-y: auto;
+        }
+        
+        .recipe-item {
+            background: rgba(255,255,255,0.05);
+            border: 2px solid rgba(76, 175, 80, 0.3);
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .recipe-item:hover {
+            background: rgba(76, 175, 80, 0.1);
+            border-color: rgba(76, 175, 80, 0.5);
+        }
+        
+        .recipe-name {
+            font-weight: bold;
+            color: #4caf50;
+            margin-bottom: 3px;
+        }
+        
+        .recipe-effect {
+            font-size: 11px;
+            color: #999;
+        }
+        
+        .alchemy-workspace {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .material-slots {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+        
+        .material-slot {
+            aspect-ratio: 1;
+            background: rgba(0,0,0,0.3);
+            border: 2px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+        
+        .refine-btn {
+            background: linear-gradient(135deg, #4caf50, #388e3c);
+            border: none;
+            padding: 12px;
+            border-radius: 25px;
+            color: white;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 3px 10px rgba(76, 175, 80, 0.4);
+        }
+        
+        .refine-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.6);
+        }
+        
+        .refine-btn:disabled {
+            background: linear-gradient(135deg, #555, #333);
+            cursor: not-allowed;
+        }
+        
+        /* 鍛造系統 */
+        #forgePanel {
+            border-color: #ff5722;
+            box-shadow: 0 0 30px rgba(255, 87, 34, 0.5);
+        }
+        
+        #forgePanel .system-panel-title {
+            color: #ffab91;
+        }
+        
+        .forge-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .equipment-list {
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+            padding: 10px;
+            max-height: 350px;
+            overflow-y: auto;
+        }
+        
+        .equipment-item {
+            background: rgba(255,255,255,0.05);
+            border: 2px solid rgba(255, 87, 34, 0.3);
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .equipment-item:hover {
+            background: rgba(255, 87, 34, 0.1);
+            border-color: rgba(255, 87, 34, 0.5);
+        }
+        
+        .equipment-name {
+            font-weight: bold;
+            color: #ff5722;
+            margin-bottom: 3px;
+        }
+        
+        .equipment-stats {
+            font-size: 11px;
+            color: #999;
+        }
+        
+        .forge-workspace {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .forge-btn {
+            background: linear-gradient(135deg, #ff5722, #e64a19);
+            border: none;
+            padding: 12px;
+            border-radius: 25px;
+            color: white;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 3px 10px rgba(255, 87, 34, 0.4);
+        }
+        
+        .forge-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 87, 34, 0.6);
+        }
+        
+        /* 洞府系統 */
+        #cavePanel {
+            border-color: #2196f3;
+            box-shadow: 0 0 30px rgba(33, 150, 243, 0.5);
+        }
+        
+        #cavePanel .system-panel-title {
+            color: #90caf9;
+        }
+        
+        .cave-content {
+            display: grid;
+            grid-template-rows: auto 1fr;
+            gap: 15px;
+            height: 100%;
+        }
+        
+        .cave-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+        
+        .cave-stat-card {
+            background: rgba(33, 150, 243, 0.1);
+            border: 2px solid rgba(33, 150, 243, 0.3);
+            border-radius: 10px;
+            padding: 10px;
+            text-align: center;
+        }
+        
+        .cave-stat-label {
+            font-size: 11px;
+            color: #90caf9;
+            margin-bottom: 5px;
+        }
+        
+        .cave-stat-value {
+            font-size: 18px;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .cave-rooms {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        
+        .cave-room {
+            background: rgba(255,255,255,0.05);
+            border: 2px solid rgba(33, 150, 243, 0.3);
+            border-radius: 10px;
+            padding: 10px;
+            transition: all 0.2s;
+        }
+        
+        .cave-room:hover {
+            background: rgba(33, 150, 243, 0.1);
+            border-color: rgba(33, 150, 243, 0.5);
+        }
+        
+        .room-name {
+            font-weight: bold;
+            color: #2196f3;
+            margin-bottom: 5px;
+        }
+        
+        .room-level {
+            font-size: 11px;
+            color: #ffd700;
+        }
+        
+        .room-effect {
+            font-size: 10px;
+            color: #999;
+            margin-top: 5px;
+        }
+        
+        .upgrade-room-btn {
+            background: linear-gradient(135deg, #2196f3, #1976d2);
+            border: none;
+            padding: 6px 12px;
+            border-radius: 15px;
+            color: white;
+            font-size: 11px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 8px;
+            transition: all 0.2s;
+        }
+        
+        .upgrade-room-btn:hover {
+            transform: translateY(-1px);
+        }
+        
+        @media (max-width: 768px) {
+            .pc-controls {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 旋轉屏幕提示 -->
+    <div class="rotate-screen">
+        <div class="rotate-icon">📱</div>
+        <div>請旋轉您的設備至橫屏模式</div>
+        <div style="font-size: 14px; margin-top: 10px; color: #999;">獲得最佳遊戲體驗</div>
+    </div>
+    
+    <!-- 預載精靈圖 -->
+    <div class="sprite-preload">
+        <!-- 角色精靈圖 -->
+        <img id="spriteMeditate" src="character_meditate.png" alt="">
+        
+        <!-- 地圖圖塊 -->
+        <img id="tileGrass" src="grass.png" alt="">
+        <img id="tileWater" src="water.png" alt="">
+        <img id="tileSand" src="sand.png" alt="">
+        <img id="tileMountain" src="mountain.png" alt="">
+        <img id="tileRoad" src="road.png" alt="">
+        <img id="tileForest" src="forest_floor.png" alt="">
+        <img id="tileFlowers" src="flowers.png" alt="">
+        <img id="tileRock" src="rock.png" alt="">
+        <img id="tileTree" src="tree.png" alt="">
+        <img id="tileHouse" src="house.png" alt="">
+        
+        <!-- 怪物精靈圖 -->
+        <img id="monsterWolf" src="monster_wolf.png" alt="">
+        <img id="monsterFox" src="monster_fox.png" alt="">
+        <img id="monsterMountain" src="monster_mountain.png" alt="">
+        <img id="monsterSpirit" src="monster_spirit.png" alt="">
+        <img id="monsterSpider" src="monster_spider.png" alt="">
+        <img id="monsterGhostfire" src="monster_ghostfire.png" alt="">
+    </div>
+    
+    <!-- 音頻元素 -->
+    <audio id="bgmLogin" src="bgm_login.mp3" loop></audio>
+    <audio id="bgmMain" src="bgm_main.mp3" loop></audio>
+    <audio id="clickSound" src="click.mp3"></audio>
+    <audio id="sfxSwordHit" src="./sword_hit.mp3"></audio>
+    
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+        
+        <!-- 頂部狀態欄 -->
+        <div class="top-status">
+            <div class="player-info">
+                <div class="realm-badge" id="realmBadge">煉氣期一層</div>
+                <div class="lingshi-display">
+                    💎 <span id="lingshiAmount">1000</span>
+                </div>
+            </div>
+            <div class="resource-bars">
+                <div class="mini-bar">
+                    <div class="mini-bar-fill mana-fill" id="manaBar" style="width:100%"></div>
+                </div>
+                <div class="mini-bar">
+                    <div class="mini-bar-fill spiritual-fill" id="spiritualBar" style="width:0%"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 戰鬥日誌 -->
+        <div class="combat-log" id="combatLog"></div>
+        
+        <!-- PC控制提示 -->
+        <div class="pc-controls">
+            WASD/方向鍵: 移動<br>
+            數字鍵1-6: 技能<br>
+            滑鼠拖曳搖桿移動
+        </div>
+        
+        <!-- 虛擬搖桿 -->
+        <div class="joystick-container" id="joystickContainer">
+            <div class="joystick-base">
+                <div class="joystick-stick" id="joystickStick"></div>
+            </div>
+        </div>
+        
+        <!-- 右側技能按鈕 -->
+        <div class="skill-buttons">
+            <div class="skill-btn attack" data-action="sword">
+                <span class="skill-icon">⚔️</span>
+                <span class="skill-name">飛劍</span>
+                <div class="cooldown-overlay" data-skill="sword"></div>
+            </div>
+            <div class="skill-btn defense" data-action="shield">
+                <span class="skill-icon">🛡️</span>
+                <span class="skill-name">護盾</span>
+                <div class="cooldown-overlay" data-skill="shield"></div>
+            </div>
+            <div class="skill-btn special" data-action="thunder">
+                <span class="skill-icon">⛈️</span>
+                <span class="skill-name">雷法</span>
+                <div class="cooldown-overlay" data-skill="thunder"></div>
+            </div>
+            <div class="skill-btn" data-action="meditate">
+                <span class="skill-icon">🧘</span>
+                <span class="skill-name">打坐</span>
+            </div>
+            <div class="skill-btn" data-action="breakthrough">
+                <span class="skill-icon">⚡</span>
+                <span class="skill-name">突破</span>
+            </div>
+            <div class="skill-btn magic" data-action="openSpellMenu">
+                <span class="skill-icon">📜</span>
+                <span class="skill-name">法術</span>
+            </div>
+        </div>
+        
+        <!-- 底部功能按鈕 -->
+        <div class="bottom-function-buttons">
+            <div class="function-btn" data-action="openStorage">
+                <span class="function-icon">💎</span>
+                <span class="function-name">儲物袋</span>
+            </div>
+            <div class="function-btn" data-action="openAlchemy">
+                <span class="function-icon">🧪</span>
+                <span class="function-name">煉丹</span>
+            </div>
+            <div class="function-btn" data-action="openForge">
+                <span class="function-icon">⚒️</span>
+                <span class="function-name">鍛造</span>
+            </div>
+            <div class="function-btn" data-action="openCave">
+                <span class="function-icon">🏠</span>
+                <span class="function-name">洞府</span>
+            </div>
+            <div class="function-btn" data-action="spawnMonsters" style="background: linear-gradient(135deg, #e74c3c, #c0392b);">
+                <span class="function-icon">👹</span>
+                <span class="function-name">召喚妖獸</span>
+            </div>
+            <div class="function-btn" data-action="toggleMusic" style="background: linear-gradient(135deg, #3498db, #2980b9);">
+                <span class="function-icon">🎵</span>
+                <span class="function-name">音樂</span>
+            </div>
+        </div>
+        
+        <!-- 法術菜單 -->
+        <div class="overlay" id="spellOverlay"></div>
+        <div class="spell-menu" id="spellMenu">
+            <div class="spell-header">
+                <div class="spell-title">
+                    ✨ 法術修煉
+                </div>
+                <div class="close-spell-menu" onclick="closeSpellMenu()">×</div>
+            </div>
+            
+            <div class="spell-item">
+                <div class="spell-top">
+                    <div class="spell-info">
+                        <span class="spell-icon-large">🗡️</span>
+                        <div class="spell-details">
+                            <div class="spell-name">飛劍術</div>
+                            <span class="spell-level">等級 <span id="swordLvl">1</span> / 24</span>
+                        </div>
+                    </div>
+                    <button class="spell-upgrade-btn" onclick="upgradeSpell('flyingSword')">升級</button>
+                </div>
+                <div class="spell-stats">
+                    <div class="stat-row">
+                        <span class="stat-label">飛劍數量:</span>
+                        <span class="stat-value highlight" id="swordCount">1</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">單劍傷害:</span>
+                        <span class="stat-value" id="swordDmg">30</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">法力消耗:</span>
+                        <span class="stat-value" id="swordMana">8</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">冷卻時間:</span>
+                        <span class="stat-value" id="swordCD">2秒</span>
+                    </div>
+                </div>
+                <div class="spell-description">
+                    發射追蹤飛劍攻擊敵人。每升級2級額外增加1把飛劍，最多可達12把飛劍同時攻擊！
+                </div>
+                <div class="upgrade-cost">
+                    <span class="cost-label">升級需要:</span>
+                    <span class="cost-value">💎 <span id="swordCost">100</span></span>
+                </div>
+            </div>
+            
+            <div class="spell-item">
+                <div class="spell-top">
+                    <div class="spell-info">
+                        <span class="spell-icon-large">🛡️</span>
+                        <div class="spell-details">
+                            <div class="spell-name">護盾術</div>
+                            <span class="spell-level">等級 <span id="shieldLvl">1</span> / 10</span>
+                        </div>
+                    </div>
+                    <button class="spell-upgrade-btn" onclick="upgradeSpell('shield')">升級</button>
+                </div>
+                <div class="spell-stats">
+                    <div class="stat-row">
+                        <span class="stat-label">護盾值:</span>
+                        <span class="stat-value" id="shieldAmount">50</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">傷害減免:</span>
+                        <span class="stat-value highlight" id="shieldBlock">0%</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">持續時間:</span>
+                        <span class="stat-value" id="shieldDuration">3秒</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">法力消耗:</span>
+                        <span class="stat-value" id="shieldMana">15</span>
+                    </div>
+                </div>
+                <div class="spell-description">
+                    生成能量護盾保護自身。初始持續3秒，每升級2級額外減免50%傷害並延長20%持續時間。
+                </div>
+                <div class="upgrade-cost">
+                    <span class="cost-label">升級需要:</span>
+                    <span class="cost-value">💎 <span id="shieldCost">100</span></span>
+                </div>
+            </div>
+            
+            <div class="spell-item">
+                <div class="spell-top">
+                    <div class="spell-info">
+                        <span class="spell-icon-large">⛈️</span>
+                        <div class="spell-details">
+                            <div class="spell-name">天雷術</div>
+                            <span class="spell-level">等級 <span id="thunderLvl">1</span> / 10</span>
+                        </div>
+                    </div>
+                    <button class="spell-upgrade-btn" onclick="upgradeSpell('thunder')">升級</button>
+                </div>
+                <div class="spell-stats">
+                    <div class="stat-row">
+                        <span class="stat-label">雷電傷害:</span>
+                        <span class="stat-value" id="thunderDmg">60</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">攻擊範圍:</span>
+                        <span class="stat-value" id="thunderRange">8</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">法力消耗:</span>
+                        <span class="stat-value" id="thunderMana">30</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">冷卻時間:</span>
+                        <span class="stat-value" id="thunderCD">10秒</span>
+                    </div>
+                </div>
+                <div class="spell-description">
+                    召喚天雷攻擊範圍內所有敵人，造成大量傷害。
+                </div>
+                <div class="upgrade-cost">
+                    <span class="cost-label">升級需要:</span>
+                    <span class="cost-value">💎 <span id="thunderCost">200</span></span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 儲物袋面板 -->
+        <div class="system-panel" id="storagePanel">
+            <div class="system-panel-header">
+                <div class="system-panel-title">
+                    💎 儲物袋
+                </div>
+                <div class="close-btn" onclick="closePanel('storagePanel')">×</div>
+            </div>
+            <div class="storage-content">
+                <div class="storage-grid" id="storageGrid">
+                    <!-- 動態生成 -->
+                </div>
+                <div style="color: #999; font-size: 12px; text-align: center;">
+                    容量: <span id="storageUsed">0</span> / <span id="storageMax">32</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 煉丹面板 -->
+        <div class="system-panel" id="alchemyPanel">
+            <div class="system-panel-header">
+                <div class="system-panel-title">
+                    🧪 煉丹爐
+                </div>
+                <div class="close-btn" onclick="closePanel('alchemyPanel')">×</div>
+            </div>
+            <div class="alchemy-content">
+                <div class="recipe-list">
+                    <div class="recipe-item" onclick="selectRecipe('healing')">
+                        <div class="recipe-name">回元丹</div>
+                        <div class="recipe-effect">恢復50點法力</div>
+                    </div>
+                    <div class="recipe-item" onclick="selectRecipe('spiritual')">
+                        <div class="recipe-name">聚靈丹</div>
+                        <div class="recipe-effect">增加30點靈力</div>
+                    </div>
+                    <div class="recipe-item" onclick="selectRecipe('breakthrough')">
+                        <div class="recipe-name">破境丹</div>
+                        <div class="recipe-effect">突破時成功率+50%</div>
+                    </div>
+                </div>
+                <div class="alchemy-workspace">
+                    <div style="text-align: center; color: #4caf50; font-size: 14px;">煉丹材料</div>
+                    <div class="material-slots">
+                        <div class="material-slot">🌿</div>
+                        <div class="material-slot">🔮</div>
+                        <div class="material-slot">💫</div>
+                    </div>
+                    <button class="refine-btn" onclick="refineAlchemy()">開始煉製</button>
+                    <div style="text-align: center; color: #999; font-size: 11px;">
+                        成功率: <span id="alchemySuccess">70%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 鍛造面板 -->
+        <div class="system-panel" id="forgePanel">
+            <div class="system-panel-header">
+                <div class="system-panel-title">
+                    ⚒️ 鍛造台
+                </div>
+                <div class="close-btn" onclick="closePanel('forgePanel')">×</div>
+            </div>
+            <div class="forge-content">
+                <div class="equipment-list">
+                    <div class="equipment-item" onclick="selectEquipment('sword')">
+                        <div class="equipment-name">青鋒劍</div>
+                        <div class="equipment-stats">攻擊力 +10</div>
+                    </div>
+                    <div class="equipment-item" onclick="selectEquipment('armor')">
+                        <div class="equipment-name">玄鐵甲</div>
+                        <div class="equipment-stats">防禦力 +8</div>
+                    </div>
+                    <div class="equipment-item" onclick="selectEquipment('ring')">
+                        <div class="equipment-name">聚靈戒</div>
+                        <div class="equipment-stats">法力上限 +20</div>
+                    </div>
+                </div>
+                <div class="forge-workspace">
+                    <div style="text-align: center; color: #ff5722; font-size: 14px;">鍛造材料</div>
+                    <div class="material-slots">
+                        <div class="material-slot">⚙️</div>
+                        <div class="material-slot">🔨</div>
+                        <div class="material-slot">🔥</div>
+                    </div>
+                    <button class="forge-btn" onclick="forgeEquipment()">開始鍛造</button>
+                    <div style="text-align: center; color: #999; font-size: 11px;">
+                        品質: <span id="forgeQuality">普通</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 洞府面板 -->
+        <div class="system-panel" id="cavePanel">
+            <div class="system-panel-header">
+                <div class="system-panel-title">
+                    🏠 洞府
+                </div>
+                <div class="close-btn" onclick="closePanel('cavePanel')">×</div>
+            </div>
+            <div class="cave-content">
+                <div class="cave-stats">
+                    <div class="cave-stat-card">
+                        <div class="cave-stat-label">洞府等級</div>
+                        <div class="cave-stat-value" id="caveLevel">1</div>
+                    </div>
+                    <div class="cave-stat-card">
+                        <div class="cave-stat-label">靈氣濃度</div>
+                        <div class="cave-stat-value" id="caveAura">100</div>
+                    </div>
+                    <div class="cave-stat-card">
+                        <div class="cave-stat-label">每日收益</div>
+                        <div class="cave-stat-value"><span id="caveIncome">10</span>💎</div>
+                    </div>
+                </div>
+                <div class="cave-rooms">
+                    <div class="cave-room">
+                        <div class="room-name">修煉室</div>
+                        <div class="room-level">Lv.1</div>
+                        <div class="room-effect">修煉速度 +10%</div>
+                        <button class="upgrade-room-btn" onclick="upgradeRoom('training')">升級 (100💎)</button>
+                    </div>
+                    <div class="cave-room">
+                        <div class="room-name">靈田</div>
+                        <div class="room-level">Lv.1</div>
+                        <div class="room-effect">每小時產出1草藥</div>
+                        <button class="upgrade-room-btn" onclick="upgradeRoom('farm')">升級 (150💎)</button>
+                    </div>
+                    <div class="cave-room">
+                        <div class="room-name">聚靈陣</div>
+                        <div class="room-level">Lv.1</div>
+                        <div class="room-effect">法力恢復 +20%</div>
+                        <button class="upgrade-room-btn" onclick="upgradeRoom('array')">升級 (200💎)</button>
+                    </div>
+                    <div class="cave-room">
+                        <div class="room-name">寶庫</div>
+                        <div class="room-level">Lv.1</div>
+                        <div class="room-effect">儲物空間 +8</div>
+                        <button class="upgrade-room-btn" onclick="upgradeRoom('treasury')">升級 (120💎)</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+class JoystickController {
+    constructor(containerId, stickId, onMove) {
+        this.container = document.getElementById(containerId);
+        this.stick = document.getElementById(stickId);
+        this.onMove = onMove;
+        this.radius = 60;
+        this.active = false;
+        this.center = { x: 60, y: 60 };
+        
+        this.setupEvents();
+    }
+    
+    setupEvents() {
+        // 觸摸事件
+        this.stick.addEventListener('touchstart', (e) => this.handleStart(e.touches[0]), { passive: false });
+        this.stick.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            this.handleMove(e.touches[0]);
+        }, { passive: false });
+        this.stick.addEventListener('touchend', () => this.handleEnd(), { passive: false });
+        
+        // 滑鼠事件
+        this.stick.addEventListener('mousedown', (e) => this.handleStart(e));
+        window.addEventListener('mousemove', (e) => {
+            if (this.active) this.handleMove(e);
+        });
+        window.addEventListener('mouseup', () => this.handleEnd());
+    }
+    
+    handleStart(e) {
+        this.active = true;
+        this.stick.classList.add('active');
+    }
+    
+    handleMove(e) {
+        if (!this.active) return;
+        
+        const rect = this.container.getBoundingClientRect();
+        const x = e.clientX - rect.left - this.center.x;
+        const y = e.clientY - rect.top - this.center.y;
+        
+        const distance = Math.sqrt(x * x + y * y);
+        const angle = Math.atan2(y, x);
+        
+        const limitedDistance = Math.min(distance, this.radius - 25);
+        
+        const newX = Math.cos(angle) * limitedDistance;
+        const newY = Math.sin(angle) * limitedDistance;
+        
+        this.stick.style.transform = `translate(${newX}px, ${newY}px)`;
+        
+        // 計算方向向量
+        const normalizedX = limitedDistance > 10 ? x / distance : 0;
+        const normalizedY = limitedDistance > 10 ? y / distance : 0;
+        
+        this.onMove(normalizedX, normalizedY);
+    }
+    
+    handleEnd() {
+        if (!this.active) return;
+        
+        this.active = false;
+        this.stick.classList.remove('active');
+        this.stick.style.transform = 'translate(0, 0)';
+        this.onMove(0, 0);
+    }
+}
+
+class MultiSwordGame {
+    constructor() {
+        this.autoSaveInterval = null;
+        this.lastSaveTime = Date.now();
+        this.canvas = null;
+        this.ctx = null;
+        this.width = window.innerWidth;
+        this.height = window.innerHeight;
+        
+        // 精靈圖載入狀態
+        this.spritesLoaded = false;
+        this.sprites = {};
+        
+        // 地圖圖塊載入狀態
+        this.tilesLoaded = false;
+        this.tiles = {};
+        
+        // 怪物精靈圖載入狀態
+        this.monsterSpritesLoaded = false;
+        this.monsterSprites = {};
+        
+        // 音樂系統
+        this.bgmLogin = null;
+        this.bgmMain = null;
+        this.clickSound = null;
+        this.musicEnabled = true;
+        this.currentBgm = null;
+        
+        // 玩家數據
+        this.player = {
+            x: 50,
+            y: 50,
+            worldX: 1600,
+            worldY: 1600,
+            mana: 100,
+            maxMana: 100,
+            spiritual: 0,
+            maxSpiritual: 100,
+            shield: 0,
+            maxShield: 0,
+            shieldDamageReduction: 0,
+            attack: 10,
+            defense: 5,
+            realm: 0,
+            facing: 'down',
+            moving: false,
+            walkFrame: 0,
+            walkSpeed: 0.2,
+            speed: 4,
+            expression: 'normal',
+            lingshi: 1000,
+            spriteScale: 4
+        };
+        
+        // 技能系統
+        this.skills = {
+            flyingSword: {
+                name: '飛劍術',
+                level: 1,
+                damage: 30,
+                count: 1,
+                maxCount: 12,
+                manaCost: 8,
+                cooldown: 2000,
+                lastUse: 0,
+                upgradeCost: 100
+            },
+            shield: {
+                name: '護盾術',
+                level: 1,
+                shieldAmount: 50,
+                duration: 3000,
+                damageReduction: 0,
+                manaCost: 15,
+                cooldown: 8000,
+                lastUse: 0,
+                upgradeCost: 100,
+                activeUntil: 0
+            },
+            thunder: {
+                name: '天雷術',
+                level: 1,
+                damage: 60,
+                range: 8,
+                manaCost: 30,
+                cooldown: 10000,
+                lastUse: 0,
+                upgradeCost: 200
+            }
+        };
+        
+        // 儲物系統
+        this.storage = {
+            maxSlots: 32,
+            items: []
+        };
+        
+        // 煉丹系統
+        this.alchemy = {
+            recipes: {
+                healing: { name: '回元丹', materials: 3, effect: '恢復50法力' },
+                spiritual: { name: '聚靈丹', materials: 3, effect: '增加30靈力' },
+                breakthrough: { name: '破境丹', materials: 5, effect: '突破成功率+50%' }
+            },
+            selectedRecipe: null,
+            successRate: 70
+        };
+        
+        // 鍛造系統
+        this.forge = {
+            equipment: {
+                sword: { name: '青鋒劍', attack: 10, cost: 200 },
+                armor: { name: '玄鐵甲', defense: 8, cost: 250 },
+                ring: { name: '聚靈戒', maxMana: 20, cost: 150 }
+            },
+            selectedEquipment: null
+        };
+        
+        // 洞府系統
+        this.cave = {
+            level: 1,
+            aura: 100,
+            dailyIncome: 10,
+            rooms: {
+                training: { name: '修煉室', level: 1, effect: 0.1, upgradeCost: 100 },
+                farm: { name: '靈田', level: 1, production: 1, upgradeCost: 150 },
+                array: { name: '聚靈陣', level: 1, manaRegen: 0.2, upgradeCost: 200 },
+                treasury: { name: '寶庫', level: 1, storageBonus: 8, upgradeCost: 120 }
+            },
+            lastCollectTime: Date.now()
+        };
+        
+        // 飛劍系統
+        this.swords = [];
+        
+        // 相機
+        this.camera = { x: 0, y: 0 };
+        
+        // 地圖
+        this.map = [];
+        this.mapSize = 100;
+        this.tileSize = 32;
+        
+        // 怪物
+        this.monsters = [];
+        
+        // 粒子效果
+        this.particles = [];
+        
+        // 傷害數字
+        this.damageNumbers = [];
+        
+        // 輸入控制
+        this.keys = {};
+        this.joystickInput = { x: 0, y: 0 };
+        this.joystickController = null;
+        
+        this.animationId = null;
+        this.lastTime = 0;
+    }
+    
+    init() {
+        console.log('初始化遊戲系統...');
+        
+        this.canvas = document.getElementById('gameCanvas');
+        this.ctx = this.canvas.getContext('2d');
+        
+        // 載入精靈圖
+        this.loadSprites();
+        
+        // 載入地圖圖塊
+        this.loadTiles();
+        
+        // 載入怪物精靈圖
+        this.loadMonsterSprites();
+        
+        // 初始化音頻系統
+        this.initAudio();
+        
+        this.resizeCanvas();
+        window.addEventListener('resize', () => this.resizeCanvas());
+        
+        this.generateMap();
+        this.generateMonsters();
+        this.setupInput();
+        this.setupJoystick();
+        this.initSystems();
+        this.updateSpellMenu();
+        this.gameLoop();
+        
+        this.addLog('歡迎來到修仙世界！', 'system');
+        this.addLog('提示：點擊"召喚妖獸"按鈕可以生成更多怪物', 'system');
+        this.updateUI();
+    }
+    
+    loadSprites() {
+        const spriteNames = {
+            'meditate': 'spriteMeditate'
+        };
+        
+        let loadedCount = 0;
+        const totalSprites = Object.keys(spriteNames).length;
+        
+        for (const [key, id] of Object.entries(spriteNames)) {
+            const img = document.getElementById(id);
+            if (img) {
+                this.sprites[key] = img;
+                loadedCount++;
+                
+                if (img.complete) {
+                    if (loadedCount === totalSprites) {
+                        this.spritesLoaded = true;
+                    }
+                } else {
+                    img.onload = () => {
+                        loadedCount++;
+                        if (loadedCount === totalSprites) {
+                            this.spritesLoaded = true;
+                        }
+                    };
+                }
+            }
+        }
+    }
+    
+    loadTiles() {
+        const tileNames = {
+            'grass': 'tileGrass',
+            'water': 'tileWater',
+            'sand': 'tileSand',
+            'mountain': 'tileMountain',
+            'road': 'tileRoad',
+            'forest': 'tileForest',
+            'flowers': 'tileFlowers',
+            'rock': 'tileRock',
+            'tree': 'tileTree',
+            'house': 'tileHouse'
+        };
+        
+        let loadedCount = 0;
+        const totalTiles = Object.keys(tileNames).length;
+        
+        for (const [key, id] of Object.entries(tileNames)) {
+            const img = document.getElementById(id);
+            if (img) {
+                this.tiles[key] = img;
+                loadedCount++;
+                
+                if (img.complete) {
+                    if (loadedCount === totalTiles) {
+                        this.tilesLoaded = true;
+                    }
+                } else {
+                    img.onload = () => {
+                        loadedCount++;
+                        if (loadedCount === totalTiles) {
+                            this.tilesLoaded = true;
+                        }
+                    };
+                }
+            }
+        }
+    }
+    
+    loadMonsterSprites() {
+        const monsterNames = {
+            'wolf': 'monsterWolf',
+            'fox': 'monsterFox',
+            'mountain': 'monsterMountain',
+            'spirit': 'monsterSpirit',
+            'spider': 'monsterSpider',
+            'ghostfire': 'monsterGhostfire'
+        };
+        
+        let loadedCount = 0;
+        const totalMonsters = Object.keys(monsterNames).length;
+        
+        for (const [key, id] of Object.entries(monsterNames)) {
+            const img = document.getElementById(id);
+            if (img) {
+                this.monsterSprites[key] = img;
+                loadedCount++;
+                
+                if (img.complete) {
+                    if (loadedCount === totalMonsters) {
+                        this.monsterSpritesLoaded = true;
+                    }
+                } else {
+                    img.onload = () => {
+                        loadedCount++;
+                        if (loadedCount === totalMonsters) {
+                            this.monsterSpritesLoaded = true;
+                        }
+                    };
+                }
+            }
+        }
+    }
+    
+    initAudio() {
+        this.bgmLogin = document.getElementById('bgmLogin');
+        this.bgmMain = document.getElementById('bgmMain');
+        this.clickSound = document.getElementById('clickSound');
+        
+        // 設置音量
+        if (this.bgmLogin) this.bgmLogin.volume = 0.3;
+        if (this.bgmMain) this.bgmMain.volume = 0.3;
+        if (this.clickSound) this.clickSound.volume = 0.5;
+        
+        // 開始播放主背景音樂
+        this.playBgm('main');
+    }
+    
+    playBgm(type) {
+        if (!this.musicEnabled) return;
+        
+        // 停止當前播放的音樂
+        if (this.currentBgm) {
+            this.currentBgm.pause();
+            this.currentBgm.currentTime = 0;
+        }
+        
+        // 播放新音樂
+        if (type === 'login' && this.bgmLogin) {
+            this.currentBgm = this.bgmLogin;
+            this.bgmLogin.play().catch(e => console.log('無法自動播放音樂，需要用戶互動'));
+        } else if (type === 'main' && this.bgmMain) {
+            this.currentBgm = this.bgmMain;
+            this.bgmMain.play().catch(e => console.log('無法自動播放音樂，需要用戶互動'));
+        }
+    }
+    
+    playClickSound() {
+        if (this.clickSound && this.musicEnabled) {
+            this.clickSound.currentTime = 0;
+            this.clickSound.play().catch(e => console.log('無法播放音效'));
+        }
+    }
+    
+    toggleMusic() {
+        this.musicEnabled = !this.musicEnabled;
+        
+        if (this.musicEnabled) {
+            this.playBgm('main');
+            this.addLog('背景音樂已開啟', 'system');
+        } else {
+            if (this.currentBgm) {
+                this.currentBgm.pause();
+            }
+            this.addLog('背景音樂已關閉', 'system');
+        }
+    }
+    
+    spawnMonstersWave() {
+        const count = 10 + Math.floor(Math.random() * 10); // 生成10-20隻怪物
+        let spawned = 0;
+        
+        for (let i = 0; i < count * 2; i++) { // 嘗試次數為目標數量的2倍
+            const x = Math.floor(Math.random() * this.mapSize);
+            const y = Math.floor(Math.random() * this.mapSize);
+            
+            // 檢查位置是否合適
+            if (this.map[y] && this.map[y][x] === 'grass') {
+                // 檢查是否離玩家太近
+                const distToPlayer = Math.sqrt(
+                    (x - this.player.x) ** 2 + 
+                    (y - this.player.y) ** 2
+                );
+                
+                if (distToPlayer > 5) { // 至少離玩家5格遠
+                    const types = ['妖狼', '妖狐', '山妖', '邪靈', '魔蛛', '鬼火'];
+                    const type = types[Math.floor(Math.random() * types.length)];
+                    const level = Math.floor(this.player.realm / 3) + 1;
+                    
+                    this.monsters.push({
+                        id: Date.now() + Math.random(),
+                        x: x,
+                        y: y,
+                        hp: 50 * level,
+                        maxHp: 50 * level,
+                        type: type,
+                        damage: 10 * level,
+                        level: level,
+                        patrolOriginX: x,
+                        patrolOriginY: y,
+                        patrolDirection: Math.floor(Math.random() * 4),
+                        patrolTimer: 0,
+                        patrolSpeed: 0.01 + Math.random() * 0.02,
+                        patrolRange: 2 + Math.floor(Math.random() * 3),
+                        moveProgress: 0,
+                        targetX: x,
+                        targetY: y,
+                        actualX: x,
+                        actualY: y
+                    });
+                    
+                    spawned++;
+                    if (spawned >= count) break;
+                }
+            }
+        }
+        
+        this.addLog(`妖獸入侵！${spawned}隻妖獸出現了！`, 'system');
+        
+        // 添加特效
+        for (let i = 0; i < 20; i++) {
+            const angle = (Math.PI * 2 / 20) * i;
+            this.particles.push({
+                x: this.player.worldX + Math.cos(angle) * 200,
+                y: this.player.worldY + Math.sin(angle) * 200,
+                vx: -Math.cos(angle) * 2,
+                vy: -Math.sin(angle) * 2,
+                life: 60,
+                maxLife: 60,
+                size: 8,
+                color: '#ff0000',
+                type: 'spawn'
+            });
+        }
+        
+        // 播放點擊音效
+        this.playClickSound();
+    }
+    
+    initSystems() {
+        // 初始化儲物袋
+        this.initStorage();
+        
+        // 初始化洞府收益計時器
+        setInterval(() => this.collectCaveIncome(), 60000); // 每分鐘檢查一次
+    }
+    
+    initStorage() {
+        const grid = document.getElementById('storageGrid');
+        if (!grid) return;
+        
+        grid.innerHTML = '';
+        for (let i = 0; i < this.storage.maxSlots; i++) {
+            const slot = document.createElement('div');
+            slot.className = 'storage-slot';
+            slot.dataset.slot = i;
+            
+            if (this.storage.items[i]) {
+                slot.innerHTML = `
+                    <div class="item-icon">${this.storage.items[i].icon}</div>
+                    <div class="item-count">${this.storage.items[i].count}</div>
+                `;
+            }
+            
+            grid.appendChild(slot);
+        }
+        
+        this.updateStorageDisplay();
+    }
+    
+    updateStorageDisplay() {
+        const used = this.storage.items.filter(item => item).length;
+        const usedEl = document.getElementById('storageUsed');
+        const maxEl = document.getElementById('storageMax');
+        if (usedEl) usedEl.textContent = used;
+        if (maxEl) maxEl.textContent = this.storage.maxSlots;
+    }
+    
+    addItemToStorage(icon, name, count = 1) {
+        // 查找是否已有相同物品
+        const existingItem = this.storage.items.find(item => item && item.name === name);
+        if (existingItem) {
+            existingItem.count += count;
+        } else {
+            // 找空位
+            const emptySlot = this.storage.items.findIndex(item => !item);
+            if (emptySlot !== -1) {
+                this.storage.items[emptySlot] = { icon, name, count };
+            } else if (this.storage.items.length < this.storage.maxSlots) {
+                this.storage.items.push({ icon, name, count });
+            } else {
+                this.addLog('儲物袋已滿！', 'system');
+                return false;
+            }
+        }
+        
+        this.initStorage();
+        return true;
+    }
+    
+    openStorage() {
+        document.getElementById('storagePanel').classList.add('show');
+        this.initStorage();
+    }
+    
+    openAlchemy() {
+        document.getElementById('alchemyPanel').classList.add('show');
+    }
+    
+    openForge() {
+        document.getElementById('forgePanel').classList.add('show');
+    }
+    
+    openCave() {
+        document.getElementById('cavePanel').classList.add('show');
+        this.updateCaveDisplay();
+    }
+    
+    updateCaveDisplay() {
+        document.getElementById('caveLevel').textContent = this.cave.level;
+        document.getElementById('caveAura').textContent = this.cave.aura;
+        document.getElementById('caveIncome').textContent = this.cave.dailyIncome;
+    }
+    
+    collectCaveIncome() {
+        const now = Date.now();
+        const timePassed = now - this.cave.lastCollectTime;
+        const hoursPassed = timePassed / (1000 * 60 * 60);
+        
+        if (hoursPassed >= 1) {
+            const income = Math.floor(this.cave.dailyIncome * hoursPassed / 24);
+            if (income > 0) {
+                this.player.lingshi += income;
+                this.addLog(`洞府產出 ${income} 靈石！`, 'system');
+                this.cave.lastCollectTime = now;
+                this.updateUI();
+                
+                // 靈田產出
+                const herbs = Math.floor(this.cave.rooms.farm.production * hoursPassed);
+                if (herbs > 0) {
+                    this.addItemToStorage('🌿', '靈草', herbs);
+                    this.addLog(`靈田產出 ${herbs} 靈草！`, 'system');
+                }
+            }
+        }
+    }
+    
+    resizeCanvas() {
+        this.width = window.innerWidth;
+        this.height = window.innerHeight;
+        this.canvas.width = this.width;
+        this.canvas.height = this.height;
+    }
+    
+    setupJoystick() {
+        this.joystickController = new JoystickController(
+            'joystickContainer',
+            'joystickStick',
+            (x, y) => {
+                this.joystickInput.x = x;
+                this.joystickInput.y = y;
+            }
+        );
+    }
+    
+    generateMap() {
+        // 使用 Perlin noise 生成地形高度圖
+        this.heightMap = [];
+        this.moistureMap = [];
+        
+        // 簡化的噪聲函數
+        const noise = (x, y, scale) => {
+            const val = Math.sin(x * scale) * Math.cos(y * scale) + 
+                       Math.sin(x * scale * 2.1) * Math.cos(y * scale * 1.9) * 0.5 +
+                       Math.sin(x * scale * 4.3) * Math.cos(y * scale * 3.7) * 0.25;
+            return (val + 1.75) / 3.5; // 歸一化到 0-1
+        };
+        
+        // 生成高度圖和濕度圖
+        for (let y = 0; y < this.mapSize; y++) {
+            this.heightMap[y] = [];
+            this.moistureMap[y] = [];
+            this.map[y] = [];
+            
+            for (let x = 0; x < this.mapSize; x++) {
+                // 高度值
+                const height = noise(x, y, 0.05) * 0.6 + noise(x, y, 0.1) * 0.3 + noise(x, y, 0.2) * 0.1;
+                this.heightMap[y][x] = height;
+                
+                // 濕度值
+                const moisture = noise(x + 100, y + 100, 0.04);
+                this.moistureMap[y][x] = moisture;
+                
+                // 根據高度和濕度決定地形
+                let tile = 'grass';
+                
+                if (height < 0.3) {
+                    tile = 'water'; // 低地是水
+                } else if (height < 0.35) {
+                    tile = 'sand'; // 沙灘
+                } else if (height > 0.75) {
+                    tile = 'mountain'; // 高山
+                } else if (height > 0.65) {
+                    tile = 'hill'; // 丘陵
+                } else {
+                    // 平原地區
+                    if (moisture > 0.7) {
+                        tile = 'forest'; // 濕潤地區是森林
+                    } else if (moisture < 0.3) {
+                        tile = 'desert'; // 乾燥地區
+                    } else {
+                        tile = 'grass'; // 草地
+                    }
+                }
+                
+                this.map[y][x] = tile;
+            }
+        }
+        
+        // 添加城鎮
+        this.towns = [];
+        const townCount = 3;
+        for (let i = 0; i < townCount; i++) {
+            let placed = false;
+            let attempts = 0;
+            while (!placed && attempts < 100) {
+                const x = 20 + Math.floor(Math.random() * (this.mapSize - 40));
+                const y = 20 + Math.floor(Math.random() * (this.mapSize - 40));
+                
+                // 確保城鎮在平地上
+                if (this.map[y][x] === 'grass' || this.map[y][x] === 'desert') {
+                    this.towns.push({ x, y, size: 3 + Math.floor(Math.random() * 3) });
+                    
+                    // 在城鎮周圍清理地形
+                    for (let dy = -2; dy <= 2; dy++) {
+                        for (let dx = -2; dx <= 2; dx++) {
+                            const ny = y + dy;
+                            const nx = x + dx;
+                            if (ny >= 0 && ny < this.mapSize && nx >= 0 && nx < this.mapSize) {
+                                if (this.map[ny][nx] !== 'water') {
+                                    this.map[ny][nx] = 'town';
+                                }
+                            }
+                        }
+                    }
+                    placed = true;
+                }
+                attempts++;
+            }
+        }
+        
+        // 生成道路連接城鎮
+        this.roads = [];
+        for (let i = 0; i < this.towns.length - 1; i++) {
+            const start = this.towns[i];
+            const end = this.towns[i + 1];
+            this.createRoad(start, end);
+        }
+        
+        // 添加一些隨機建築和裝飾
+        this.decorations = [];
+        for (let i = 0; i < 50; i++) {
+            const x = Math.floor(Math.random() * this.mapSize);
+            const y = Math.floor(Math.random() * this.mapSize);
+            
+            if (this.map[y][x] === 'grass') {
+                const types = ['tree', 'rock', 'flower', 'house'];
+                this.decorations.push({
+                    x, y,
+                    type: types[Math.floor(Math.random() * types.length)]
+                });
+            }
+        }
+    }
+    
+    createRoad(start, end) {
+        // 簡單的A*路徑生成道路
+        let x = start.x;
+        let y = start.y;
+        
+        while (Math.abs(x - end.x) > 1 || Math.abs(y - end.y) > 1) {
+            const dx = end.x - x;
+            const dy = end.y - y;
+            
+            // 隨機但傾向目標方向
+            if (Math.random() < 0.7) {
+                if (Math.abs(dx) > Math.abs(dy)) {
+                    x += Math.sign(dx);
+                } else {
+                    y += Math.sign(dy);
+                }
+            } else {
+                // 偶爾隨機轉向，讓道路更自然
+                if (Math.random() < 0.5) {
+                    x += Math.sign(dx);
+                } else {
+                    y += Math.sign(dy);
+                }
+            }
+            
+            // 確保在地圖範圍內
+            x = Math.max(0, Math.min(this.mapSize - 1, x));
+            y = Math.max(0, Math.min(this.mapSize - 1, y));
+            
+            // 只在非水域建造道路
+            if (this.map[y][x] !== 'water' && this.map[y][x] !== 'town') {
+                this.map[y][x] = 'road';
+                this.roads.push({ x, y });
+            }
+        }
+    }
+    
+    generateMonsters() {
+        this.monsters = [];
+        for (let i = 0; i < 50; i++) { // 增加初始怪物數量從20到50
+            this.spawnMonster();
+        }
+    }
+    
+    spawnMonster() {
+        const x = Math.floor(Math.random() * this.mapSize);
+        const y = Math.floor(Math.random() * this.mapSize);
+        
+        if (this.map[y] && this.map[y][x] === 'grass') {
+            const types = ['妖狼', '妖狐', '山妖', '邪靈', '魔蛛', '鬼火'];
+            const type = types[Math.floor(Math.random() * types.length)];
+            this.monsters.push({
+                id: Date.now() + Math.random(),
+                x: x,
+                y: y,
+                hp: 50,
+                maxHp: 50,
+                type: type,
+                damage: 10,
+                patrolOriginX: x,
+                patrolOriginY: y,
+                patrolDirection: Math.floor(Math.random() * 4),
+                patrolTimer: 0,
+                patrolSpeed: 0.01 + Math.random() * 0.02,
+                patrolRange: 2 + Math.floor(Math.random() * 3),
+                moveProgress: 0,
+                targetX: x,
+                targetY: y,
+                actualX: x,
+                actualY: y
+            });
+        }
+    }
+    
+    setupInput() {
+        // 鍵盤輸入
+        window.addEventListener('keydown', (e) => {
+            this.keys[e.key.toLowerCase()] = true;
+            
+            if (e.key >= '1' && e.key <= '6') {
+                this.handleSkillKey(e.key);
+            }
+        });
+        
+        window.addEventListener('keyup', (e) => {
+            this.keys[e.key.toLowerCase()] = false;
+        });
+        
+        // 技能按鈕
+        document.querySelectorAll('.skill-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const action = btn.dataset.action;
+                this.handleAction(action);
+            });
+            
+            // 觸摸事件防止誤觸
+            btn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                const action = btn.dataset.action;
+                this.handleAction(action);
+            });
+        });
+        
+        // 功能按鈕
+        document.querySelectorAll('.function-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const action = btn.dataset.action;
+                this.handleAction(action);
+            });
+            
+            btn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                const action = btn.dataset.action;
+                this.handleAction(action);
+            });
+        });
+    }
+    
+    handleAction(action) {
+        // 播放點擊音效
+        this.playClickSound();
+        
+        switch(action) {
+            case 'openSpellMenu':
+                this.openSpellMenu();
+                break;
+            case 'openStorage':
+                this.openStorage();
+                break;
+            case 'openAlchemy':
+                this.openAlchemy();
+                break;
+            case 'openForge':
+                this.openForge();
+                break;
+            case 'openCave':
+                this.openCave();
+                break;
+            case 'sword':
+                this.useSkill('flyingSword');
+                break;
+            case 'shield':
+                this.useSkill('shield');
+                break;
+            case 'thunder':
+                this.useSkill('thunder');
+                break;
+            case 'meditate':
+                this.meditate();
+                break;
+            case 'breakthrough':
+                this.tryBreakthrough();
+                break;
+            case 'spawnMonsters':
+                this.spawnMonstersWave();
+                break;
+            case 'toggleMusic':
+                this.toggleMusic();
+                break;
+        }
+    }
+    
+    openSpellMenu() {
+        document.getElementById('spellOverlay').classList.add('show');
+        document.getElementById('spellMenu').classList.add('show');
+        this.updateSpellMenu();
+    }
+    
+    updateSpellMenu() {
+        // 飛劍術
+        const sword = this.skills.flyingSword;
+        document.getElementById('swordLvl').textContent = sword.level;
+        document.getElementById('swordCount').textContent = sword.count + ' / 12';
+        document.getElementById('swordDmg').textContent = sword.damage;
+        document.getElementById('swordMana').textContent = sword.manaCost;
+        document.getElementById('swordCD').textContent = (sword.cooldown / 1000) + '秒';
+        document.getElementById('swordCost').textContent = sword.upgradeCost;
+        
+        // 護盾術
+        const shield = this.skills.shield;
+        document.getElementById('shieldLvl').textContent = shield.level;
+        document.getElementById('shieldAmount').textContent = shield.shieldAmount;
+        document.getElementById('shieldBlock').textContent = shield.damageReduction + '%';
+        document.getElementById('shieldDuration').textContent = (shield.duration / 1000).toFixed(1) + '秒';
+        document.getElementById('shieldMana').textContent = shield.manaCost;
+        document.getElementById('shieldCost').textContent = shield.upgradeCost;
+        
+        // 天雷術
+        const thunder = this.skills.thunder;
+        document.getElementById('thunderLvl').textContent = thunder.level;
+        document.getElementById('thunderDmg').textContent = thunder.damage;
+        document.getElementById('thunderRange').textContent = thunder.range;
+        document.getElementById('thunderMana').textContent = thunder.manaCost;
+        document.getElementById('thunderCD').textContent = (thunder.cooldown / 1000) + '秒';
+        document.getElementById('thunderCost').textContent = thunder.upgradeCost;
+    }
+    
+    upgradeSpell(spellName) {
+        const skill = this.skills[spellName];
+        if (!skill) return;
+        
+        if (spellName === 'flyingSword' && skill.level >= 24) {
+            this.addLog('飛劍術已達最高等級！', 'system');
+            return;
+        } else if (spellName !== 'flyingSword' && skill.level >= 10) {
+            this.addLog('已達最高等級！', 'system');
+            return;
+        }
+        
+        if (this.player.lingshi < skill.upgradeCost) {
+            this.addLog('靈石不足！', 'system');
+            return;
+        }
+        
+        this.player.lingshi -= skill.upgradeCost;
+        skill.level++;
+        
+        // 升級效果
+        if (spellName === 'flyingSword') {
+            skill.damage += 5;
+            const newCount = Math.min(12, Math.floor(skill.level / 2) + 1);
+            if (newCount > skill.count) {
+                skill.count = newCount;
+                this.addLog(`飛劍數量增加到${skill.count}把！`, 'system');
+                
+                if (skill.count === 6) {
+                    this.addLog('六劍齊飛！小有所成！', 'system');
+                } else if (skill.count === 12) {
+                    this.addLog('萬劍歸宗！大成境界！', 'system');
+                }
+            }
+            skill.cooldown = Math.max(1000, skill.cooldown - 50);
+        } else if (spellName === 'shield') {
+            skill.shieldAmount += 10;
+            if (skill.level % 2 === 0) {
+                skill.damageReduction = Math.min(90, skill.damageReduction + 50);
+                skill.duration = Math.floor(skill.duration * 1.2);
+                this.addLog(`護盾減傷${skill.damageReduction}%，持續${(skill.duration/1000).toFixed(1)}秒！`, 'system');
+            }
+        } else if (spellName === 'thunder') {
+            skill.damage += 10;
+            skill.range += 0.5;
+        }
+        
+        skill.upgradeCost = Math.floor(skill.upgradeCost * 1.5);
+        
+        this.addLog(`${skill.name}升級到${skill.level}級！`, 'system');
+        this.updateSpellMenu();
+        this.updateUI();
+    }
+    
+    useSkill(skillName) {
+        const skill = this.skills[skillName];
+        if (!skill) return;
+        
+        const now = Date.now();
+        if (now - skill.lastUse < skill.cooldown) {
+            const remaining = Math.ceil((skill.cooldown - (now - skill.lastUse)) / 1000);
+            this.showCooldown(skillName, remaining);
+            return;
+        }
+        
+        if (skill.manaCost > this.player.mana) {
+            this.addLog('法力不足！', 'system');
+            return;
+        }
+        
+        skill.lastUse = now;
+        this.player.mana -= skill.manaCost;
+        
+        // 顯示冷卻
+        this.startCooldownAnimation(skillName, skill.cooldown);
+        
+        if (skillName === 'flyingSword') {
+            this.launchMultipleSwords();
+        } else if (skillName === 'shield') {
+            this.activateShield();
+        } else if (skillName === 'thunder') {
+            this.thunderAttack();
+        }
+    }
+    
+    showCooldown(skillName, seconds) {
+        const overlay = document.querySelector(`[data-skill="${skillName === 'flyingSword' ? 'sword' : skillName}"]`);
+        if (overlay) {
+            overlay.textContent = seconds + 's';
+        }
+    }
+    
+    startCooldownAnimation(skillName, duration) {
+        const overlayName = skillName === 'flyingSword' ? 'sword' : skillName;
+        const overlay = document.querySelector(`[data-skill="${overlayName}"]`);
+        if (!overlay) return;
+        
+        overlay.classList.add('active');
+        let remaining = Math.ceil(duration / 1000);
+        overlay.textContent = remaining + 's';
+        
+        const interval = setInterval(() => {
+            remaining--;
+            if (remaining > 0) {
+                overlay.textContent = remaining + 's';
+            } else {
+                overlay.classList.remove('active');
+                overlay.textContent = '';
+                clearInterval(interval);
+            }
+        }, 1000);
+    }
+    
+    launchMultipleSwords() {
+        const skill = this.skills.flyingSword;
+        const swordCount = skill.count;
+        
+        let targets = [];
+        this.monsters.forEach(monster => {
+            const dist = Math.sqrt(
+                (monster.x - this.player.x) ** 2 + 
+                (monster.y - this.player.y) ** 2
+            );
+            targets.push({ monster, dist });
+        });
+        
+        targets.sort((a, b) => a.dist - b.dist);
+        
+        if (targets.length === 0) {
+            this.addLog('附近沒有敵人！', 'system');
+            return;
+        }
+        
+        for (let i = 0; i < swordCount; i++) {
+            const targetIndex = Math.min(i, targets.length - 1);
+            const target = targets[targetIndex];
+            
+            if (!target) break;
+            
+            const angleOffset = (i - swordCount / 2) * 0.3;
+            const speedVariation = 12 + (i % 3) * 2;
+            
+            const sword = {
+                x: this.player.worldX,
+                y: this.player.worldY,
+                target: target.monster,
+                speed: speedVariation,
+                damage: skill.damage,
+                trail: [],
+                life: 150,
+                homing: true,
+                curveStrength: 0.1 + (i % 3) * 0.05,
+                angleOffset: angleOffset,
+                delay: i * 50,
+                active: false,
+                retargeting: true
+            };
+            
+            const actualX = target.monster.actualX !== undefined ? target.monster.actualX : target.monster.x;
+            const actualY = target.monster.actualY !== undefined ? target.monster.actualY : target.monster.y;
+            const dx = actualX * this.tileSize - sword.x;
+            const dy = actualY * this.tileSize - sword.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const angle = Math.atan2(dy, dx) + angleOffset;
+            
+            sword.vx = Math.cos(angle) * sword.speed;
+            sword.vy = Math.sin(angle) * sword.speed;
+            
+            setTimeout(() => {
+                sword.active = true;
+                this.createSwordLaunchEffect(sword.x, sword.y);
+            }, sword.delay);
+            
+            this.swords.push(sword);
+        }
+        
+        this.player.expression = 'attack';
+        setTimeout(() => this.player.expression = 'normal', 1000);
+        
+        if (swordCount >= 12) {
+            this.addLog(`萬劍訣！${swordCount}劍齊發！`, 'skill');
+        } else if (swordCount >= 6) {
+            this.addLog(`六合飛劍！${swordCount}劍出鞘！`, 'skill');
+        } else if (swordCount >= 3) {
+            this.addLog(`三才劍陣！${swordCount}劍齊飛！`, 'skill');
+        } else {
+            this.addLog(`飛劍術 Lv.${skill.level}！${swordCount}劍出擊！`, 'skill');
+        }
+    }
+    
+    createSwordLaunchEffect(x, y) {
+        for (let i = 0; i < 8; i++) {
+            const angle = (Math.PI * 2 / 8) * i;
+            this.particles.push({
+                x: x,
+                y: y,
+                vx: Math.cos(angle) * 3,
+                vy: Math.sin(angle) * 3,
+                life: 15,
+                maxLife: 15,
+                size: 3,
+                color: '#00bcd4',
+                type: 'sword_launch'
+            });
+        }
+    }
+    
+    activateShield() {
+        const skill = this.skills.shield;
+        const now = Date.now();
+        
+        this.player.shield = skill.shieldAmount;
+        this.player.maxShield = skill.shieldAmount;
+        this.player.shieldDamageReduction = skill.damageReduction;
+        skill.activeUntil = now + skill.duration;
+        
+        this.player.expression = 'defensive';
+        setTimeout(() => this.player.expression = 'normal', 1000);
+        
+        this.addLog(`護盾術 Lv.${skill.level}！護盾${skill.shieldAmount}點，減傷${skill.damageReduction}%`, 'skill');
+        this.createShieldEffect();
+    }
+    
+    thunderAttack() {
+        const skill = this.skills.thunder;
+        let hitCount = 0;
+        
+        this.player.expression = 'power';
+        setTimeout(() => this.player.expression = 'normal', 1000);
+        
+        this.monsters.forEach(monster => {
+            const actualX = monster.actualX !== undefined ? monster.actualX : monster.x;
+            const actualY = monster.actualY !== undefined ? monster.actualY : monster.y;
+            const dist = Math.sqrt((actualX - this.player.x) ** 2 + (actualY - this.player.y) ** 2);
+            if (dist < skill.range) {
+                this.damageMonster(monster, skill.damage);
+                this.createThunderEffect(actualX * this.tileSize, actualY * this.tileSize);
+                hitCount++;
+            }
+        });
+        
+        if (hitCount > 0) {
+            this.addLog(`天雷術 Lv.${skill.level}！擊中${hitCount}個目標`, 'skill');
+        }
+    }
+    
+    updateSwords(deltaTime) {
+        this.swords = this.swords.filter(sword => {
+            if (!sword.active) return true;
+            
+            sword.trail.push({ x: sword.x, y: sword.y });
+            if (sword.trail.length > 20) sword.trail.shift();
+            
+            if (sword.homing && sword.retargeting) {
+                if (!this.monsters.includes(sword.target) || sword.target.hp <= 0) {
+                    let minDist = Infinity;
+                    let newTarget = null;
+                    this.monsters.forEach(monster => {
+                        if (monster.hp > 0) {
+                            const actualX = monster.actualX !== undefined ? monster.actualX : monster.x;
+                            const actualY = monster.actualY !== undefined ? monster.actualY : monster.y;
+                            const dist = Math.sqrt(
+                                (actualX * this.tileSize - sword.x) ** 2 + 
+                                (actualY * this.tileSize - sword.y) ** 2
+                            );
+                            if (dist < minDist) {
+                                minDist = dist;
+                                newTarget = monster;
+                            }
+                        }
+                    });
+                    sword.target = newTarget;
+                    
+                    if (!newTarget) {
+                        this.createSwordHitEffect(sword.x, sword.y);
+                        return false;
+                    }
+                }
+                
+                if (sword.target && sword.target.hp > 0) {
+                    const actualX = sword.target.actualX !== undefined ? sword.target.actualX : sword.target.x;
+                    const actualY = sword.target.actualY !== undefined ? sword.target.actualY : sword.target.y;
+                    const targetX = actualX * this.tileSize + 16;
+                    const targetY = actualY * this.tileSize + 16;
+                    const dx = targetX - sword.x;
+                    const dy = targetY - sword.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (dist > 0) {
+                        const turnSpeed = sword.curveStrength || 0.15;
+                        sword.vx += (dx / dist * sword.speed - sword.vx) * turnSpeed;
+                        sword.vy += (dy / dist * sword.speed - sword.vy) * turnSpeed;
+                        
+                        const currentSpeed = Math.sqrt(sword.vx * sword.vx + sword.vy * sword.vy);
+                        if (currentSpeed > sword.speed) {
+                            sword.vx = (sword.vx / currentSpeed) * sword.speed;
+                            sword.vy = (sword.vy / currentSpeed) * sword.speed;
+                        }
+                    }
+                }
+            }
+            
+            sword.x += (sword.vx || 0) * deltaTime * 60;
+            sword.y += (sword.vy || 0) * deltaTime * 60;
+            
+            const tileX = Math.floor(sword.x / this.tileSize);
+            const tileY = Math.floor(sword.y / this.tileSize);
+            
+            for (let monster of this.monsters) {
+                const dist = Math.sqrt((monster.x - tileX) ** 2 + (monster.y - tileY) ** 2);
+                if (dist < 1 && monster.hp > 0) {
+                    this.damageMonster(monster, sword.damage);
+                    this.createSwordHitEffect(sword.x, sword.y);
+                    sword.target = null;
+                    sword.life = Math.min(sword.life, 30);
+                }
+            }
+            
+            sword.life--;
+            return sword.life > 0;
+        });
+    }
+    
+    createSwordHitEffect(x, y) {
+        for (let i = 0; i < 12; i++) {
+            const angle = (Math.PI * 2 / 12) * i;
+            this.particles.push({
+                x: x,
+                y: y,
+                vx: Math.cos(angle) * 6,
+                vy: Math.sin(angle) * 6,
+                life: 20,
+                maxLife: 20,
+                size: 5,
+                color: '#00bcd4',
+                type: 'sword_hit'
+            });
+        }
+    }
+    
+    meditate() {
+        this.player.mana = Math.min(this.player.maxMana, this.player.mana + 30);
+        this.player.spiritual = Math.min(this.player.maxSpiritual, this.player.spiritual + 15);
+        this.player.expression = 'meditate';
+        setTimeout(() => this.player.expression = 'normal', 3000);
+        
+        this.addLog('打坐恢復30法力，獲得15靈力', 'heal');
+        this.createMeditateEffect();
+        
+        // 播放點擊音效
+        this.playClickSound();
+    }
+    
+    tryBreakthrough() {
+        if (this.player.spiritual >= this.player.maxSpiritual) {
+            this.player.realm++;
+            this.player.spiritual = 0;
+            this.player.maxSpiritual += 50;
+            this.player.maxMana += 50;
+            this.player.mana = this.player.maxMana;
+            this.player.attack += 5;
+            this.player.defense += 3;
+            this.player.lingshi += 200;
+            
+            const realms = [
+                '煉氣期一層', '煉氣期二層', '煉氣期三層',
+                '煉氣期四層', '煉氣期五層', '煉氣期六層',
+                '築基期前期', '築基期中期', '築基期後期',
+                '金丹期', '元嬰期', '化神期'
+            ];
+            
+            document.getElementById('realmBadge').textContent = realms[this.player.realm] || '飛升境';
+            this.addLog(`突破成功！晉升${realms[this.player.realm]}！獲得200靈石`, 'system');
+            this.createBreakthroughEffect();
+        } else {
+            this.addLog(`靈力不足，還需${this.player.maxSpiritual - this.player.spiritual}點`, 'system');
+        }
+    }
+    
+    damageMonster(monster, damage) {
+        monster.hp -= damage;
+        document.getElementById('sfxSwordHit').play().catch(()=>{});
+        const actualX = monster.actualX !== undefined ? monster.actualX : monster.x;
+        const actualY = monster.actualY !== undefined ? monster.actualY : monster.y;
+        this.createDamageNumber(actualX * this.tileSize, actualY * this.tileSize, damage);
+        
+        if (monster.hp <= 0) {
+            const index = this.monsters.indexOf(monster);
+            if (index > -1) {
+                this.monsters.splice(index, 1);
+                this.player.spiritual += 10;
+                this.player.lingshi += Math.floor(Math.random() * 20) + 10;
+                this.createDeathEffect(actualX * this.tileSize, actualY * this.tileSize);
+                
+                // 隨機掉落物品
+                const dropChance = Math.random();
+                if (dropChance < 0.3) {
+                    const drops = [
+                        { icon: '🌿', name: '靈草' },
+                        { icon: '🔮', name: '靈石碎片' },
+                        { icon: '⚙️', name: '精鐵' },
+                        { icon: '💫', name: '妖丹' }
+                    ];
+                    const drop = drops[Math.floor(Math.random() * drops.length)];
+                    if (this.addItemToStorage(drop.icon, drop.name)) {
+                        this.addLog(`獲得 ${drop.name}！`, 'system');
+                    }
+                }
+                
+                this.addLog(`擊敗${monster.type}！獲得10靈力和靈石`, 'system');
+                this.updateUI();
+                
+                setTimeout(() => this.spawnMonster(), 3000);
+            }
+        }
+    }
+    
+    handleSkillKey(key) {
+        const skillMap = {
+            '1': 'meditate',
+            '2': 'flyingSword',
+            '3': 'shield',
+            '4': 'thunder',
+            '5': 'breakthrough',
+            '6': 'openSpellMenu'
+        };
+        
+        const action = skillMap[key];
+        if (action === 'meditate' || action === 'breakthrough') {
+            this[action]();
+        } else if (action === 'openSpellMenu') {
+            this.openSpellMenu();
+        } else if (action) {
+            this.useSkill(action);
+        }
+    }
+    
+    createShieldEffect() {
+        for (let i = 0; i < 20; i++) {
+            const angle = (Math.PI * 2 / 20) * i;
+            const radius = 30;
+            this.particles.push({
+                x: this.player.worldX + Math.cos(angle) * radius,
+                y: this.player.worldY + Math.sin(angle) * radius,
+                vx: 0,
+                vy: 0,
+                life: 60,
+                maxLife: 60,
+                size: 4,
+                color: '#00e676',
+                type: 'shield',
+                angle: angle
+            });
+        }
+    }
+    
+    createThunderEffect(x, y) {
+        for (let i = 0; i < 20; i++) {
+            this.particles.push({
+                x: x + (Math.random() - 0.5) * 20,
+                y: y - i * 10,
+                vx: (Math.random() - 0.5) * 2,
+                vy: 0,
+                life: 10 + Math.random() * 10,
+                maxLife: 20,
+                size: 8 - i * 0.3,
+                color: '#fff700',
+                type: 'thunder'
+            });
+        }
+    }
+    
+    createDeathEffect(x, y) {
+        for (let i = 0; i < 15; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            this.particles.push({
+                x: x,
+                y: y,
+                vx: Math.cos(angle) * 4,
+                vy: Math.sin(angle) * 4 - 2,
+                life: 30,
+                maxLife: 30,
+                size: 5,
+                color: '#9c27b0',
+                type: 'death'
+            });
+        }
+    }
+    
+    createBreakthroughEffect() {
+        const x = this.player.worldX;
+        const y = this.player.worldY;
+        
+        for (let i = 0; i < 30; i++) {
+            this.particles.push({
+                x: x,
+                y: y - i * 5,
+                vx: (Math.random() - 0.5) * 2,
+                vy: -3,
+                life: 60,
+                maxLife: 60,
+                size: 10 - i * 0.2,
+                color: '#ffd700',
+                type: 'breakthrough'
+            });
+        }
+    }
+    
+    createMeditateEffect() {
+        for (let i = 0; i < 8; i++) {
+            const angle = (Math.PI * 2 / 8) * i;
+            const radius = 40;
+            this.particles.push({
+                x: this.player.worldX + Math.cos(angle) * radius,
+                y: this.player.worldY + Math.sin(angle) * radius,
+                vx: -Math.cos(angle) * 0.5,
+                vy: -Math.sin(angle) * 0.5,
+                life: 60,
+                maxLife: 60,
+                size: 3,
+                color: '#e1bee7',
+                type: 'meditate'
+            });
+        }
+    }
+    
+    createDamageNumber(x, y, damage) {
+        this.damageNumbers.push({
+            x: x,
+            y: y,
+            value: damage,
+            vy: -2,
+            life: 30,
+            color: damage > 30 ? '#ff1744' : '#ff6b6b'
+        });
+    }
+    updateMonsterPatrol(deltaTime) {
+    this.monsters.forEach(monster => {
+        // 初始化实际位置（如果还没有）
+        if (monster.actualX === undefined) {
+            monster.actualX = monster.x;
+            monster.actualY = monster.y;
+            monster.targetX = monster.x;
+            monster.targetY = monster.y;
+            monster.patrolOriginX = monster.x;
+            monster.patrolOriginY = monster.y;
+            monster.patrolDirection = Math.floor(Math.random() * 4);
+            monster.patrolTimer = 0;
+            monster.patrolSpeed = 0.01 + Math.random() * 0.02;
+            monster.patrolRange = 2 + Math.floor(Math.random() * 3);
+            monster.moveProgress = 0;
+        }
+        
+        // 检查是否接近玩家（如果接近则停止巡逻）
+        const distToPlayer = Math.sqrt(
+            (monster.x - this.player.x) ** 2 + 
+            (monster.y - this.player.y) ** 2
+        );
+        
+        if (distToPlayer < 8) {
+            // 玩家在附近，暂停巡逻
+            return;
+        }
+        
+        // 更新巡逻计时器
+        monster.patrolTimer += deltaTime;
+        
+        // 如果到达目标位置，选择新的巡逻目标
+        if (monster.moveProgress >= 1 || monster.patrolTimer > 3) {
+            monster.moveProgress = 0;
+            monster.patrolTimer = 0;
+            
+            // 随机改变方向
+            const changeDirection = Math.random() < 0.3;
+            if (changeDirection) {
+                monster.patrolDirection = Math.floor(Math.random() * 4);
+            }
+            
+            // 计算下一个目标位置
+            let nextX = monster.x;
+            let nextY = monster.y;
+            
+            switch(monster.patrolDirection) {
+                case 0: // 上
+                    nextY = Math.max(monster.patrolOriginY - monster.patrolRange, monster.y - 1);
+                    break;
+                case 1: // 右
+                    nextX = Math.min(monster.patrolOriginX + monster.patrolRange, monster.x + 1);
+                    break;
+                case 2: // 下
+                    nextY = Math.min(monster.patrolOriginY + monster.patrolRange, monster.y + 1);
+                    break;
+                case 3: // 左
+                    nextX = Math.max(monster.patrolOriginX - monster.patrolRange, monster.x - 1);
+                    break;
+            }
+            
+            // 检查目标位置是否可行走
+            if (nextX >= 0 && nextX < this.mapSize && 
+                nextY >= 0 && nextY < this.mapSize) {
+                const tile = this.map[nextY][nextX];
+                if (tile === 'grass' || tile === 'forest' || tile === 'desert') {
+                    // 检查是否有其他怪物
+                    const occupied = this.monsters.some(other => 
+                        other.id !== monster.id && 
+                        other.x === nextX && 
+                        other.y === nextY
+                    );
+                    
+                    if (!occupied) {
+                        monster.targetX = nextX;
+                        monster.targetY = nextY;
+                    } else {
+                        // 如果被占用，改变方向
+                        monster.patrolDirection = (monster.patrolDirection + 1) % 4;
+                    }
+                } else {
+                    // 遇到障碍物，改变方向
+                    monster.patrolDirection = (monster.patrolDirection + 2) % 4;
+                }
+            }
+        }
+        
+        // 平滑移动到目标位置
+        if (monster.x !== monster.targetX || monster.y !== monster.targetY) {
+            monster.moveProgress += monster.patrolSpeed;
+            
+            if (monster.moveProgress >= 1) {
+                monster.moveProgress = 1;
+                monster.x = monster.targetX;
+                monster.y = monster.targetY;
+                monster.actualX = monster.x;
+                monster.actualY = monster.y;
+            } else {
+                // 插值计算实际显示位置
+                const startX = monster.x;
+                const startY = monster.y;
+                monster.actualX = startX + (monster.targetX - startX) * monster.moveProgress;
+                monster.actualY = startY + (monster.targetY - startY) * monster.moveProgress;
+            }
+        }
+    });
+}
+    update(deltaTime) {
+        // 處理輸入（鍵盤和搖桿）
+        let dx = 0, dy = 0;
+        
+        // 鍵盤輸入
+        if (this.keys['w'] || this.keys['arrowup']) {
+            dy = -1;
+            this.player.facing = 'up';
+        }
+        if (this.keys['s'] || this.keys['arrowdown']) {
+            dy = 1;
+            this.player.facing = 'down';
+        }
+        if (this.keys['a'] || this.keys['arrowleft']) {
+            dx = -1;
+            this.player.facing = 'left';
+        }
+        if (this.keys['d'] || this.keys['arrowright']) {
+            dx = 1;
+            this.player.facing = 'right';
+        }
+        
+        // 搖桿輸入優先級更高
+        if (Math.abs(this.joystickInput.x) > 0.1 || Math.abs(this.joystickInput.y) > 0.1) {
+            dx = this.joystickInput.x;
+            dy = this.joystickInput.y;
+            
+            // 更新面向
+            if (Math.abs(dx) > Math.abs(dy)) {
+                this.player.facing = dx > 0 ? 'right' : 'left';
+            } else {
+                this.player.facing = dy > 0 ? 'down' : 'up';
+            }
+        }
+        
+        if (dx !== 0 || dy !== 0) {
+            // 歸一化斜向移動速度
+            if (dx !== 0 && dy !== 0) {
+                const length = Math.sqrt(dx * dx + dy * dy);
+                dx /= length;
+                dy /= length;
+            }
+            
+            const speed = this.player.speed * deltaTime * 60;
+            const newX = this.player.worldX + dx * speed;
+            const newY = this.player.worldY + dy * speed;
+            
+            const tileX = Math.floor(newX / this.tileSize);
+            const tileY = Math.floor(newY / this.tileSize);
+            
+            if (tileX >= 0 && tileX < this.mapSize && tileY >= 0 && tileY < this.mapSize) {
+                const tile = this.map[tileY][tileX];
+                if (tile !== 'water' && tile !== 'rock') {
+                    this.player.worldX = newX;
+                    this.player.worldY = newY;
+                    this.player.x = tileX;
+                    this.player.y = tileY;
+                    this.player.moving = true;
+                    this.player.walkFrame += this.player.walkSpeed;
+                }
+            }
+        } else {
+            this.player.moving = false;
+            this.player.walkFrame = 0;
+        }
+        
+        // 更新相機
+        this.camera.x = this.player.worldX - this.width / 2;
+        this.camera.y = this.player.worldY - this.height / 2;
+        
+        // 更新飛劍
+        this.updateMonsterPatrol(deltaTime);
+        this.updateSwords(deltaTime);
+        
+        // 更新粒子
+        this.particles = this.particles.filter(p => {
+            if (p.type === 'shield') {
+                p.angle += 0.05;
+                p.x = this.player.worldX + Math.cos(p.angle) * 30;
+                p.y = this.player.worldY + Math.sin(p.angle) * 30;
+            } else {
+                p.x += p.vx || 0;
+                p.y += p.vy || 0;
+                
+                if (p.type === 'death') {
+                    p.vy += 0.1;
+                }
+            }
+            
+            p.life--;
+            return p.life > 0;
+        });
+        
+        // 更新傷害數字
+        this.damageNumbers = this.damageNumbers.filter(dn => {
+            dn.y += dn.vy;
+            dn.vy += 0.1;
+            dn.life--;
+            return dn.life > 0;
+        });
+        
+        // 護盾時間檢查
+        const now = Date.now();
+        if (this.player.shield > 0 && this.skills.shield.activeUntil < now) {
+            this.player.shield = 0;
+            this.player.shieldDamageReduction = 0;
+            this.addLog('護盾消失', 'system');
+        }
+        
+        // 自動恢復
+        if (Math.random() < 0.01) {
+            this.player.mana = Math.min(this.player.maxMana, this.player.mana + 1);
+        }
+        
+        this.updateUI();
+    }
+    
+    drawCharacterSprite(x, y) {
+        const ctx = this.ctx;
+        
+        // 只使用打坐圖片作為角色
+        const sprite = this.sprites.meditate;
+        
+        if (!sprite) {
+            // 如果圖片未載入，繪製簡單的佔位符
+            ctx.fillStyle = 'rgba(0,0,0,0.3)';
+            ctx.beginPath();
+            ctx.ellipse(x, y + 30, 24, 12, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = '#5c9ead';
+            ctx.beginPath();
+            ctx.arc(x, y, 30, 0, Math.PI * 2);
+            ctx.fill();
+        } else {
+            ctx.save();
+            
+            // 如果面向左邊，水平翻轉
+            if (this.player.facing === 'left') {
+                ctx.scale(-1, 1);
+                x = -x;
+            }
+            
+            // 繪製精靈圖 - 使用標準大小
+            const scale = this.player.spriteScale;
+            const width = 32 * scale;  // 保持和其他精靈圖相同的大小
+            const height = 32 * scale;
+            
+            ctx.drawImage(sprite, x - width/2, y - height/2, width, height);
+            
+            ctx.restore();
+        }
+        
+        // 繪製護盾效果（調整大小以配合更大的角色）
+        if (this.player.shield > 0) {
+            const shieldStrength = this.player.shield / this.player.maxShield;
+            ctx.strokeStyle = '#00e676';
+            ctx.lineWidth = 3;
+            ctx.globalAlpha = 0.3 + shieldStrength * 0.4 + Math.sin(Date.now() * 0.005) * 0.1;
+            ctx.beginPath();
+            ctx.arc(x, y, 70, 0, Math.PI * 2);  // 護盾半徑從35增加到70
+            ctx.stroke();
+            
+            if (this.player.shieldDamageReduction > 0) {
+                ctx.fillStyle = '#00e676';
+                ctx.globalAlpha = 0.8;
+                ctx.font = 'bold 14px Arial';  // 字體也相應增大
+                ctx.textAlign = 'center';
+                ctx.fillText(`-${this.player.shieldDamageReduction}%`, x, y - 80);
+            }
+            
+            ctx.globalAlpha = 1;
+        }
+        
+        // 境界光環（調整大小以配合更大的角色）
+        if (this.player.realm >= 6) {
+            ctx.strokeStyle = '#ffd700';
+            ctx.lineWidth = 2;
+            ctx.globalAlpha = 0.5 + Math.sin(Date.now() * 0.003) * 0.2;
+            ctx.beginPath();
+            ctx.arc(x, y - 20, 60, 0, Math.PI * 2);  // 光環半徑從30增加到60
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+        }
+    }
+    
+    drawMonster(ctx, x, y, monster) {
+        // 嘗試使用怪物精靈圖
+        let monsterSprite = null;
+        const monsterType = monster.type;
+        
+        // 根據怪物類型選擇對應的精靈圖
+        if (monsterType === '妖狼' && this.monsterSprites.wolf) {
+            monsterSprite = this.monsterSprites.wolf;
+        } else if (monsterType === '妖狐' && this.monsterSprites.fox) {
+            monsterSprite = this.monsterSprites.fox;
+        } else if (monsterType === '山妖' && this.monsterSprites.mountain) {
+            monsterSprite = this.monsterSprites.mountain;
+        } else if (monsterType === '邪靈' && this.monsterSprites.spirit) {
+            monsterSprite = this.monsterSprites.spirit;
+        } else if (monsterType === '魔蛛' && this.monsterSprites.spider) {
+            monsterSprite = this.monsterSprites.spider;
+        } else if (monsterType === '鬼火' && this.monsterSprites.ghostfire) {
+            monsterSprite = this.monsterSprites.ghostfire;
+        }
+        
+        // 如果有對應的精靈圖，使用圖片繪製
+        if (monsterSprite && monsterSprite.complete) {
+            ctx.drawImage(monsterSprite, x - 32, y - 32, 64, 64);
+        } else {
+            // 否則使用原本的程式繪製
+            // 怪物陰影
+            ctx.fillStyle = 'rgba(0,0,0,0.3)';
+            ctx.beginPath();
+            ctx.ellipse(x, y + 8, 15, 8, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // 怪物身體
+            const colors = {
+                '妖狼': '#795548',
+                '妖狐': '#FF6E40',
+                '山妖': '#558B2F',
+                '邪靈': '#7E57C2',
+                '魔蛛': '#424242',
+                '鬼火': '#1976D2'
+            };
+            
+            ctx.fillStyle = colors[monster.type] || '#DC2626';
+            ctx.beginPath();
+            ctx.arc(x, y, 12, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // 怪物眼睛
+            ctx.fillStyle = '#FF0000';
+            ctx.shadowBlur = 5;
+            ctx.shadowColor = '#FF0000';
+            ctx.beginPath();
+            ctx.arc(x - 4, y - 2, 2, 0, Math.PI * 2);
+            ctx.arc(x + 4, y - 2, 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        }
+        
+        // 血條
+        if (monster.hp < monster.maxHp) {
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.fillRect(x - 15, y - 20, 30, 4);
+            ctx.fillStyle = '#DC2626';
+            ctx.fillRect(x - 15, y - 20, 30 * (monster.hp / monster.maxHp), 4);
+        }
+        
+        // 怪物等級標示（如果有）
+        if (monster.level && monster.level > 1) {
+            ctx.fillStyle = '#FFD700';
+            ctx.font = 'bold 10px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(`Lv.${monster.level}`, x, y - 25);
+        }
+    }
+    
+    render() {
+        const ctx = this.ctx;
+        
+        // 天空背景漸變
+        const skyGradient = ctx.createLinearGradient(0, 0, 0, this.height);
+        skyGradient.addColorStop(0, '#87CEEB');
+        skyGradient.addColorStop(0.4, '#98D8E8');
+        skyGradient.addColorStop(1, '#F0E68C');
+        ctx.fillStyle = skyGradient;
+        ctx.fillRect(0, 0, this.width, this.height);
+        
+        const startX = Math.floor(this.camera.x / this.tileSize);
+        const startY = Math.floor(this.camera.y / this.tileSize);
+        const endX = startX + Math.ceil(this.width / this.tileSize) + 2;
+        const endY = startY + Math.ceil(this.height / this.tileSize) + 2;
+        
+        // 第一層：繪製基礎地形
+        for (let y = Math.max(0, startY); y < Math.min(this.mapSize, endY); y++) {
+            for (let x = Math.max(0, startX); x < Math.min(this.mapSize, endX); x++) {
+                const tile = this.map[y][x];
+                const screenX = x * this.tileSize - this.camera.x;
+                const screenY = y * this.tileSize - this.camera.y;
+                
+                // 使用圖片圖塊或回退到顏色
+                let tileImage = null;
+                let fallbackColor = '#4CAF50';
+                
+                switch(tile) {
+                    case 'water':
+                        tileImage = this.tiles.water;
+                        fallbackColor = '#2196F3';
+                        break;
+                    case 'sand':
+                        tileImage = this.tiles.sand;
+                        fallbackColor = '#F4E4C1';
+                        break;
+                    case 'grass':
+                        tileImage = this.tiles.grass;
+                        fallbackColor = '#4CAF50';
+                        break;
+                    case 'forest':
+                        tileImage = this.tiles.forest;
+                        fallbackColor = '#1B5E20';
+                        break;
+                    case 'desert':
+                        tileImage = this.tiles.sand; // 使用沙地圖塊代替沙漠
+                        fallbackColor = '#D4A76A';
+                        break;
+                    case 'hill':
+                        tileImage = this.tiles.mountain;
+                        fallbackColor = '#8D6E63';
+                        break;
+                    case 'mountain':
+                        tileImage = this.tiles.mountain;
+                        fallbackColor = '#5D4037';
+                        break;
+                    case 'road':
+                        tileImage = this.tiles.road;
+                        fallbackColor = '#8D6E63';
+                        break;
+                    case 'town':
+                        tileImage = this.tiles.road; // 暫時用道路代替城鎮地面
+                        fallbackColor = '#BCAAA4';
+                        break;
+                }
+                
+                if (tileImage && tileImage.complete) {
+                    // 繪製圖片圖塊（從1024x1024縮放到32x32）
+                    ctx.drawImage(tileImage, screenX, screenY, this.tileSize, this.tileSize);
+                } else {
+                    // 如果圖片未載入，使用顏色填充
+                    ctx.fillStyle = fallbackColor;
+                    ctx.fillRect(screenX, screenY, this.tileSize, this.tileSize);
+                }
+            }
+        }
+        
+        // 第二層：繪製裝飾物（樹木、建築等）
+        for (let y = Math.max(0, startY); y < Math.min(this.mapSize, endY); y++) {
+            for (let x = Math.max(0, startX); x < Math.min(this.mapSize, endX); x++) {
+                const tile = this.map[y][x];
+                const screenX = x * this.tileSize - this.camera.x;
+                const screenY = y * this.tileSize - this.camera.y;
+                
+                // 森林中的樹木
+                if (tile === 'forest' && Math.random() > 0.7) {
+                    if (this.tiles.tree && this.tiles.tree.complete) {
+                        // 繪製樹木，稍微大一些
+                        ctx.drawImage(this.tiles.tree, screenX - 8, screenY - 16, 48, 48);
+                    } else {
+                        this.drawTree(ctx, screenX + 8, screenY + 8, 12);
+                        this.drawTree(ctx, screenX + 24, screenY + 20, 10);
+                    }
+                }
+            }
+        }
+        
+        // 繪製城鎮建築
+        this.towns.forEach(town => {
+            const centerX = town.x * this.tileSize - this.camera.x;
+            const centerY = town.y * this.tileSize - this.camera.y;
+            
+            // 繪製房屋
+            if (this.tiles.house && this.tiles.house.complete) {
+                for (let i = 0; i < town.size; i++) {
+                    const angle = (Math.PI * 2 / town.size) * i;
+                    const bx = centerX + Math.cos(angle) * 40 - 32;
+                    const by = centerY + Math.sin(angle) * 40 - 32;
+                    ctx.drawImage(this.tiles.house, bx, by, 64, 64);
+                }
+            } else {
+                // 回退到程式繪製
+                for (let i = 0; i < town.size; i++) {
+                    const angle = (Math.PI * 2 / town.size) * i;
+                    const bx = centerX + Math.cos(angle) * 40;
+                    const by = centerY + Math.sin(angle) * 40;
+                    this.drawBuilding(ctx, bx, by, i % 3);
+                }
+            }
+            
+            // 城鎮中心（市場）
+            this.drawMarket(ctx, centerX, centerY);
+        });
+        
+        // 繪製額外裝飾
+        this.decorations.forEach(deco => {
+            const screenX = deco.x * this.tileSize - this.camera.x;
+            const screenY = deco.y * this.tileSize - this.camera.y;
+            
+            switch(deco.type) {
+                case 'tree':
+                    if (this.tiles.tree && this.tiles.tree.complete) {
+                        ctx.drawImage(this.tiles.tree, screenX - 16, screenY - 16, 64, 64);
+                    } else {
+                        this.drawTree(ctx, screenX + 16, screenY + 20, 15);
+                    }
+                    break;
+                case 'rock':
+                    if (this.tiles.rock && this.tiles.rock.complete) {
+                        ctx.drawImage(this.tiles.rock, screenX, screenY, 32, 32);
+                    } else {
+                        this.drawRock(ctx, screenX + 16, screenY + 16);
+                    }
+                    break;
+                case 'flower':
+                    if (this.tiles.flowers && this.tiles.flowers.complete) {
+                        ctx.drawImage(this.tiles.flowers, screenX, screenY, 32, 32);
+                    } else {
+                        this.drawFlowers(ctx, screenX + 16, screenY + 16);
+                    }
+                    break;
+                case 'house':
+                    if (this.tiles.house && this.tiles.house.complete) {
+                        ctx.drawImage(this.tiles.house, screenX - 16, screenY - 16, 64, 64);
+                    } else {
+                        this.drawBuilding(ctx, screenX, screenY, 0);
+                    }
+                    break;
+            }
+        });
+        
+        // 渲染怪物
+        this.monsters.forEach(monster => {
+            const actualX = monster.actualX !== undefined ? monster.actualX : monster.x;
+            const actualY = monster.actualY !== undefined ? monster.actualY : monster.y;
+            const screenX = actualX * this.tileSize - this.camera.x + 16;
+            const screenY = actualY * this.tileSize - this.camera.y + 16;
+            
+            // 檢查是否在畫面範圍內
+            if (screenX > -50 && screenX < this.width + 50 && 
+                screenY > -50 && screenY < this.height + 50) {
+                this.drawMonster(ctx, screenX, screenY, monster);
+            }
+        });
+        
+        // 渲染飛劍
+        this.swords.forEach((sword, index) => {
+            if (!sword.active) return;
+            
+            const screenX = sword.x - this.camera.x;
+            const screenY = sword.y - this.camera.y;
+            
+            const hue = 180 + (index * 30) % 180;
+            const swordColor = `hsl(${hue}, 100%, 50%)`;
+            
+            // 軌跡
+            ctx.strokeStyle = swordColor;
+            ctx.lineWidth = 2 + (index % 2);
+            ctx.globalAlpha = 0.6;
+            ctx.beginPath();
+            sword.trail.forEach((point, i) => {
+                const px = point.x - this.camera.x;
+                const py = point.y - this.camera.y;
+                const alpha = i / sword.trail.length;
+                ctx.globalAlpha = alpha * 0.6;
+                
+                if (i === 0) {
+                    ctx.moveTo(px, py);
+                } else {
+                    ctx.lineTo(px, py);
+                }
+            });
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+            
+            // 劍身
+            ctx.save();
+            ctx.translate(screenX, screenY);
+            const angle = Math.atan2(sword.vy || 0, sword.vx || 1);
+            ctx.rotate(angle);
+            
+            const gradient = ctx.createLinearGradient(-15, 0, 15, 0);
+            gradient.addColorStop(0, `hsla(${hue}, 100%, 50%, 0.6)`);
+            gradient.addColorStop(0.5, '#ffffff');
+            gradient.addColorStop(1, `hsla(${hue}, 100%, 50%, 0.6)`);
+            
+            ctx.fillStyle = gradient;
+            ctx.fillRect(-15, -2, 30, 4);
+            
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.moveTo(15, -3);
+            ctx.lineTo(20, 0);
+            ctx.lineTo(15, 3);
+            ctx.closePath();
+            ctx.fill();
+            
+            ctx.restore();
+            
+            // 光暈
+            ctx.globalAlpha = 0.4;
+            const glowGradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, 15);
+            glowGradient.addColorStop(0, `hsla(${hue}, 100%, 70%, 0.8)`);
+            glowGradient.addColorStop(1, 'transparent');
+            ctx.fillStyle = glowGradient;
+            ctx.beginPath();
+            ctx.arc(screenX, screenY, 15, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+        });
+        
+        // 渲染粒子
+        this.particles.forEach(p => {
+            const screenX = p.x - this.camera.x;
+            const screenY = p.y - this.camera.y;
+            
+            ctx.fillStyle = p.color;
+            ctx.globalAlpha = p.life / p.maxLife;
+            
+            if (p.type === 'thunder') {
+                ctx.strokeStyle = p.color;
+                ctx.lineWidth = p.size;
+                ctx.beginPath();
+                ctx.moveTo(screenX, screenY);
+                ctx.lineTo(screenX + Math.random() * 20 - 10, screenY + 10);
+                ctx.stroke();
+            } else if (p.type === 'breakthrough') {
+                const gradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, p.size);
+                gradient.addColorStop(0, '#fff');
+                gradient.addColorStop(0.5, p.color);
+                gradient.addColorStop(1, 'transparent');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(screenX - p.size, screenY - p.size * 2, p.size * 2, p.size * 4);
+            } else {
+                ctx.beginPath();
+                ctx.arc(screenX, screenY, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        });
+        
+        ctx.globalAlpha = 1;
+        
+        // 渲染玩家（使用精靈圖）
+        const playerScreenX = this.player.worldX - this.camera.x;
+        const playerScreenY = this.player.worldY - this.camera.y;
+        
+        this.drawCharacterSprite(playerScreenX, playerScreenY);
+        
+        // 渲染傷害數字
+        ctx.font = 'bold 20px Arial';
+        ctx.textAlign = 'center';
+        this.damageNumbers.forEach(dn => {
+            const screenX = dn.x - this.camera.x;
+            const screenY = dn.y - this.camera.y;
+            
+            ctx.globalAlpha = dn.life / 30;
+            ctx.fillStyle = dn.color;
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.strokeText(dn.value, screenX, screenY);
+            ctx.fillText(dn.value, screenX, screenY);
+        });
+        
+        ctx.globalAlpha = 1;
+    }
+    
+    // 輔助繪圖函數
+    drawTree(ctx, x, y, size) {
+        // 樹幹
+        ctx.fillStyle = '#6D4C41';
+        ctx.fillRect(x - size/6, y, size/3, size/2);
+        
+        // 樹葉（多層）
+        const leafColors = ['#2E7D32', '#388E3C', '#43A047'];
+        leafColors.forEach((color, i) => {
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(x, y - size/2 + i * 3, size * 0.8 - i * 2, 0, Math.PI * 2);
+            ctx.fill();
+        });
+        
+        // 樹葉高光
+        ctx.fillStyle = 'rgba(255,255,255,0.1)';
+        ctx.beginPath();
+        ctx.arc(x - size/4, y - size/2, size/3, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    drawBuilding(ctx, x, y, type) {
+        // 建築陰影
+        ctx.fillStyle = 'rgba(0,0,0,0.2)';
+        ctx.fillRect(x + 2, y + 2, 40, 35);
+        
+        // 建築主體
+        const colors = ['#D4A373', '#C0392B', '#7B68EE'];
+        ctx.fillStyle = colors[type % colors.length];
+        ctx.fillRect(x, y, 40, 35);
+        
+        // 屋頂
+        ctx.fillStyle = '#8B4513';
+        ctx.beginPath();
+        ctx.moveTo(x - 5, y);
+        ctx.lineTo(x + 20, y - 15);
+        ctx.lineTo(x + 45, y);
+        ctx.closePath();
+        ctx.fill();
+        
+        // 門
+        ctx.fillStyle = '#4A2C17';
+        ctx.fillRect(x + 15, y + 15, 10, 20);
+        
+        // 窗戶
+        ctx.fillStyle = '#FFF59D';
+        ctx.fillRect(x + 5, y + 8, 8, 8);
+        ctx.fillRect(x + 27, y + 8, 8, 8);
+        
+        // 窗戶十字架
+        ctx.strokeStyle = '#4A2C17';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x + 9, y + 8);
+        ctx.lineTo(x + 9, y + 16);
+        ctx.moveTo(x + 5, y + 12);
+        ctx.lineTo(x + 13, y + 12);
+        ctx.stroke();
+    }
+    
+    drawMarket(ctx, x, y) {
+        // 市場攤位
+        ctx.fillStyle = '#8D6E63';
+        ctx.fillRect(x - 20, y - 10, 40, 20);
+        
+        // 遮陽棚
+        ctx.fillStyle = '#FF6F61';
+        ctx.beginPath();
+        ctx.moveTo(x - 25, y - 10);
+        ctx.lineTo(x, y - 20);
+        ctx.lineTo(x + 25, y - 10);
+        ctx.closePath();
+        ctx.fill();
+        
+        // 商品
+        ctx.fillStyle = '#FFA726';
+        ctx.beginPath();
+        ctx.arc(x - 10, y, 3, 0, Math.PI * 2);
+        ctx.arc(x, y, 3, 0, Math.PI * 2);
+        ctx.arc(x + 10, y, 3, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    drawRock(ctx, x, y) {
+        // 岩石陰影
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx.beginPath();
+        ctx.ellipse(x, y + 5, 12, 6, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 岩石主體
+        const gradient = ctx.createRadialGradient(x - 3, y - 3, 0, x, y, 10);
+        gradient.addColorStop(0, '#9E9E9E');
+        gradient.addColorStop(1, '#616161');
+        ctx.fillStyle = gradient;
+        
+        ctx.beginPath();
+        ctx.moveTo(x - 8, y + 3);
+        ctx.lineTo(x - 6, y - 5);
+        ctx.lineTo(x + 2, y - 8);
+        ctx.lineTo(x + 8, y - 4);
+        ctx.lineTo(x + 10, y + 3);
+        ctx.closePath();
+        ctx.fill();
+        
+        // 岩石紋理
+        ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x - 4, y - 2);
+        ctx.lineTo(x + 3, y + 1);
+        ctx.stroke();
+    }
+    
+    drawFlowers(ctx, x, y) {
+        // 多朵小花
+        const colors = ['#FF69B4', '#FFB6C1', '#FFA07A'];
+        for (let i = 0; i < 3; i++) {
+            const fx = x + (Math.random() - 0.5) * 10;
+            const fy = y + (Math.random() - 0.5) * 10;
+            
+            // 花莖
+            ctx.strokeStyle = '#228B22';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(fx, fy);
+            ctx.lineTo(fx, fy + 5);
+            ctx.stroke();
+            
+            // 花瓣
+            ctx.fillStyle = colors[i % colors.length];
+            for (let j = 0; j < 5; j++) {
+                const angle = (Math.PI * 2 / 5) * j;
+                const px = fx + Math.cos(angle) * 3;
+                const py = fy + Math.sin(angle) * 3;
+                ctx.beginPath();
+                ctx.arc(px, py, 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            // 花心
+            ctx.fillStyle = '#FFEB3B';
+            ctx.beginPath();
+            ctx.arc(fx, fy, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+    
+    updateUI() {
+        document.getElementById('manaBar').style.width = 
+            (this.player.mana / this.player.maxMana * 100) + '%';
+        
+        document.getElementById('spiritualBar').style.width = 
+            (this.player.spiritual / this.player.maxSpiritual * 100) + '%';
+        
+        document.getElementById('lingshiAmount').textContent = this.player.lingshi;
+    }
+    
+    addLog(message, type) {
+        const log = document.getElementById('combatLog');
+        const div = document.createElement('div');
+        div.className = `log-message log-${type}`;
+        div.textContent = message;
+        
+        // 添加樣式
+        switch(type) {
+            case 'damage':
+                div.style.color = '#ff6b6b';
+                break;
+            case 'heal':
+                div.style.color = '#4caf50';
+                break;
+            case 'skill':
+                div.style.color = '#00bcd4';
+                break;
+            case 'system':
+                div.style.color = '#ffd700';
+                break;
+            default:
+                div.style.color = '#ffffff';
+        }
+        
+        log.appendChild(div);
+        log.scrollTop = log.scrollHeight;
+        
+        while (log.children.length > 8) {
+            log.removeChild(log.firstChild);
+        }
+    }
+    
+    gameLoop() {
+        const currentTime = Date.now();
+        const deltaTime = (currentTime - this.lastTime) / 1000;
+        this.lastTime = currentTime;
+        
+        const clampedDelta = Math.min(deltaTime, 0.1);
+        
+        this.update(clampedDelta);
+        this.render();
+        
+        this.animationId = requestAnimationFrame(() => this.gameLoop());
+    }
+}
+
+// 全局函數
+function closeSpellMenu() {
+    document.getElementById('spellOverlay').classList.remove('show');
+    document.getElementById('spellMenu').classList.remove('show');
+}
+
+function closePanel(panelId) {
+    document.getElementById(panelId).classList.remove('show');
+}
+
+function upgradeSpell(spellName) {
+    if (window.game) {
+        window.game.upgradeSpell(spellName);
+    }
+}
+
+function selectRecipe(recipeType) {
+    if (window.game) {
+        window.game.alchemy.selectedRecipe = recipeType;
+        document.querySelectorAll('.recipe-item').forEach(item => {
+            item.style.border = '2px solid rgba(76, 175, 80, 0.3)';
+        });
+        event.currentTarget.style.border = '2px solid #4caf50';
+    }
+}
+
+function refineAlchemy() {
+    if (!window.game) return;
+    
+    const recipe = window.game.alchemy.selectedRecipe;
+    if (!recipe) {
+        window.game.addLog('請先選擇丹方！', 'system');
+        return;
+    }
+    
+    // 檢查材料
+    const hasHerbs = window.game.storage.items.find(item => item && item.name === '靈草');
+    if (!hasHerbs || hasHerbs.count < 3) {
+        window.game.addLog('材料不足！需要3個靈草', 'system');
+        return;
+    }
+    
+    // 消耗材料
+    hasHerbs.count -= 3;
+    if (hasHerbs.count <= 0) {
+        const index = window.game.storage.items.indexOf(hasHerbs);
+        window.game.storage.items[index] = null;
+    }
+    
+    // 煉製判定
+    const success = Math.random() * 100 < window.game.alchemy.successRate;
+    if (success) {
+        const recipes = window.game.alchemy.recipes;
+        let pillName = '';
+        let effect = '';
+        
+        switch(recipe) {
+            case 'healing':
+                pillName = '回元丹';
+                window.game.addItemToStorage('💊', pillName);
+                break;
+            case 'spiritual':
+                pillName = '聚靈丹';
+                window.game.addItemToStorage('💊', pillName);
+                break;
+            case 'breakthrough':
+                pillName = '破境丹';
+                window.game.addItemToStorage('💊', pillName);
+                break;
+        }
+        
+        window.game.addLog(`煉製成功！獲得 ${pillName}`, 'system');
+    } else {
+        window.game.addLog('煉製失敗！材料損失', 'system');
+    }
+    
+    window.game.initStorage();
+}
+
+function selectEquipment(equipType) {
+    if (window.game) {
+        window.game.forge.selectedEquipment = equipType;
+        document.querySelectorAll('.equipment-item').forEach(item => {
+            item.style.border = '2px solid rgba(255, 87, 34, 0.3)';
+        });
+        event.currentTarget.style.border = '2px solid #ff5722';
+    }
+}
+
+function forgeEquipment() {
+    if (!window.game) return;
+    
+    const equip = window.game.forge.selectedEquipment;
+    if (!equip) {
+        window.game.addLog('請先選擇裝備！', 'system');
+        return;
+    }
+    
+    // 檢查材料
+    const hasIron = window.game.storage.items.find(item => item && item.name === '精鐵');
+    if (!hasIron || hasIron.count < 2) {
+        window.game.addLog('材料不足！需要2個精鐵', 'system');
+        return;
+    }
+    
+    const equipment = window.game.forge.equipment[equip];
+    if (window.game.player.lingshi < equipment.cost) {
+        window.game.addLog('靈石不足！', 'system');
+        return;
+    }
+    
+    // 消耗材料
+    hasIron.count -= 2;
+    if (hasIron.count <= 0) {
+        const index = window.game.storage.items.indexOf(hasIron);
+        window.game.storage.items[index] = null;
+    }
+    window.game.player.lingshi -= equipment.cost;
+    
+    // 鍛造成功
+    switch(equip) {
+        case 'sword':
+            window.game.player.attack += equipment.attack;
+            window.game.addItemToStorage('⚔️', equipment.name);
+            break;
+        case 'armor':
+            window.game.player.defense += equipment.defense;
+            window.game.addItemToStorage('🛡️', equipment.name);
+            break;
+        case 'ring':
+            window.game.player.maxMana += equipment.maxMana;
+            window.game.player.mana = window.game.player.maxMana;
+            window.game.addItemToStorage('💍', equipment.name);
+            break;
+    }
+    
+    window.game.addLog(`鍛造成功！獲得 ${equipment.name}`, 'system');
+    window.game.updateUI();
+    window.game.initStorage();
+}
+
+function upgradeRoom(roomType) {
+    if (!window.game) return;
+    
+    const room = window.game.cave.rooms[roomType];
+    if (!room) return;
+    
+    if (window.game.player.lingshi < room.upgradeCost) {
+        window.game.addLog('靈石不足！', 'system');
+        return;
+    }
+    
+    window.game.player.lingshi -= room.upgradeCost;
+    room.level++;
+    
+    // 升級效果
+    switch(roomType) {
+        case 'training':
+            room.effect += 0.1;
+            window.game.addLog(`修煉室升級！修煉速度+${(room.effect * 100).toFixed(0)}%`, 'system');
+            break;
+        case 'farm':
+            room.production += 1;
+            window.game.addLog(`靈田升級！每小時產出${room.production}草藥`, 'system');
+            break;
+        case 'array':
+            room.manaRegen += 0.1;
+            window.game.addLog(`聚靈陣升級！法力恢復+${(room.manaRegen * 100).toFixed(0)}%`, 'system');
+            break;
+        case 'treasury':
+            room.storageBonus += 8;
+            window.game.storage.maxSlots += 8;
+            window.game.addLog(`寶庫升級！儲物空間+8`, 'system');
+            window.game.initStorage();
+            break;
+    }
+    
+    room.upgradeCost = Math.floor(room.upgradeCost * 1.5);
+    
+    // 更新洞府等級和收益
+    window.game.cave.level = Math.floor(
+        (window.game.cave.rooms.training.level + 
+         window.game.cave.rooms.farm.level + 
+         window.game.cave.rooms.array.level + 
+         window.game.cave.rooms.treasury.level) / 4
+    );
+    window.game.cave.dailyIncome = 10 * window.game.cave.level;
+    window.game.cave.aura = 100 * window.game.cave.level;
+    
+    window.game.updateCaveDisplay();
+    window.game.updateUI();
+    
+    // 更新房間顯示
+    const roomDiv = event.currentTarget.parentElement;
+    roomDiv.querySelector('.room-level').textContent = `Lv.${room.level}`;
+    event.currentTarget.textContent = `升級 (${room.upgradeCost}💎)`;
+}
+
+// 啟動遊戲
+window.game = new MultiSwordGame();
+window.addEventListener('DOMContentLoaded', () => {
+    game.init();
+});
+
+// 防止觸摸滾動和縮放
+document.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+}, { passive: false });
+
+document.addEventListener('gesturestart', (e) => {
+    e.preventDefault();
+});
+
+// 防止雙擊縮放
+let lastTouchEnd = 0;
+document.addEventListener('touchend', (e) => {
+    const now = Date.now();
+    if (now - lastTouchEnd <= 300) {
+        e.preventDefault();
+    }
+    lastTouchEnd = now;
+}, false);
+    </script>
+    <!-- ===== 登录与存档（无背景音乐，保留背景图/点击音效） ===== -->
+<style>
+  .login-mask{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:9999;
+    background:#0b0b14 url('./background_mountain.png') center/cover no-repeat}
+  .login-card{width:min(92vw,420px);background:rgba(0,0,0,.72);border:1px solid #2b2b3a;border-radius:14px;
+    padding:28px;color:#eaeaf2;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+  .login-title{margin:0 0 6px;font-size:24px;color:#ffd54a}
+  .login-sub{margin:0 0 20px;color:#cfd3dc}
+  .row{margin-bottom:14px}
+  .row label{display:block;margin:0 0 6px;color:#b8bdc7;font-size:14px}
+  .row input{width:100%;padding:12px 14px;border-radius:10px;border:1px solid #34344a;background:#171724;color:#eaeaf2}
+  .btn{width:100%;padding:12px 14px;border:none;border-radius:10px;color:#0b0b14;font-weight:700;cursor:pointer;background:#ffd54a}
+  .btn.secondary{background:#5865f2;color:#fff;margin-top:8px}
+  .opts{display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-size:13px;color:#b8bdc7}
+  .user-list{margin-top:10px;display:none}
+  .user-item{display:flex;justify-content:space-between;align-items:center;background:#19192a;border:1px solid #2e2e44;
+    padding:8px 10px;border-radius:8px;margin-bottom:8px}
+  .logout-btn{position:fixed;top:10px;right:10px;z-index:9998;padding:8px 12px;border-radius:8px;border:1px solid #2b2b3a;background:#171724;color:#eaeaf2;display:none}
+  .save-tip{position:fixed;bottom:10px;right:10px;background:#171724;border:1px solid #2b2b3a;color:#b8bdc7;padding:6px 10px;border-radius:8px;display:none}
+</style>
+
+<div id="loginMask" class="login-mask">
+  <div class="login-card">
+    <h1 class="login-title">凡人修仙传</h1>
+    <p class="login-sub">登录以加载/创建本地存档</p>
+
+    <form id="loginForm" onsubmit="return handleLogin(event)">
+      <div class="row">
+        <label>道号</label>
+        <input id="username" name="username" required placeholder="请输入道号" autocomplete="username">
+      </div>
+      <div class="row">
+        <label>符密码</label>
+        <input id="password" name="password" type="password" required placeholder="请输入密码" autocomplete="current-password">
+      </div>
+      <button class="btn" type="submit" onclick="playClick()">进入修仙界</button>
+    </form>
+
+    <button class="btn secondary" onclick="guestLogin();playClick()">游客试玩</button>
+
+    <div class="opts">
+      <label><input id="rememberMe" type="checkbox"> 记住道号</label>
+      <a href="javascript:void(0)" onclick="toggleUserList();playClick()">选择账号</a>
+    </div>
+
+    <div id="userList" class="user-list"></div>
+  </div>
+</div>
+
+<button class="logout-btn" onclick="logout();playClick()">退出登录</button>
+<div class="save-tip" id="saveTip">—</div>
+
+<audio id="sfxClick" src="./click.mp3"></audio>
+
+<script>
+/* ===== 数据与工具 ===== */
+const LS_USERS = 'xiuxian_users';
+const API = 'http://localhost:3000';
+
+async function cloudSave(u, data){
+  await fetch(API + '/api/save', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ user: u, data })
+  }).catch(console.warn);
+}
+
+async function cloudLoad(u){
+  const r = await fetch(API + '/api/load?user=' + encodeURIComponent(u))
+                    .catch(console.warn);
+  return r ? r.json() : null;
+}
+let users = JSON.parse(localStorage.getItem(LS_USERS) || '{}');
+let currentUser = null;
+let gameState = null;
+
+const tip = m => { 
+    const t = document.getElementById('saveTip'); 
+    if(t) {
+        t.textContent = m; 
+        t.style.display = 'block'; 
+        setTimeout(() => t.style.display = 'none', 1500); 
+    }
+};
+const playClick = () => document.getElementById('sfxClick')?.play().catch(() => {});
+
+/* ===== 存档系统 ===== */
+function saveUsers() { 
+    try {
+        localStorage.setItem(LS_USERS, JSON.stringify(users)); 
+        return true;
+    } catch(e) {
+        console.error('保存用户数据失败:', e);
+        if(e.name === 'QuotaExceededError') {
+            tip('⚠️ 存储空间不足，请清理浏览器缓存');
+        }
+        return false;
+    }
+}
+
+function saveGame() { 
+    if(!currentUser || !users[currentUser] || !window.game) {
+        return false;
+    }
+    
+    try {
+        // 保存完整游戏数据
+        const fullGameData = {
+            // 玩家数据
+            player: {
+                x: window.game.player.x,
+                y: window.game.player.y,
+                worldX: window.game.player.worldX,
+                worldY: window.game.player.worldY,
+                mana: window.game.player.mana,
+                maxMana: window.game.player.maxMana,
+                spiritual: window.game.player.spiritual,
+                maxSpiritual: window.game.player.maxSpiritual,
+                shield: window.game.player.shield,
+                maxShield: window.game.player.maxShield,
+                shieldDamageReduction: window.game.player.shieldDamageReduction,
+                attack: window.game.player.attack,
+                defense: window.game.player.defense,
+                realm: window.game.player.realm,
+                lingshi: window.game.player.lingshi
+            },
+            // 技能数据 - 使用安全的深拷贝
+            skills: JSON.parse(JSON.stringify(window.game.skills || {})),
+            // 储物系统
+            storage: JSON.parse(JSON.stringify(window.game.storage || {})),
+            // 炼丹系统
+            alchemy: JSON.parse(JSON.stringify(window.game.alchemy || {})),
+            // 锻造系统
+            forge: JSON.parse(JSON.stringify(window.game.forge || {})),
+            // 洞府系统  
+            cave: JSON.parse(JSON.stringify(window.game.cave || {})),
+            // 其他
+            musicEnabled: window.game.musicEnabled,
+            lastSave: Date.now(),
+            username: currentUser,
+            version: '1.0' // 添加版本号以便未来兼容性处理
+        };
+        
+        users[currentUser].gameData = fullGameData;
+
+        // ⬇️ 新增：同步到后端
+        cloudSave(currentUser, fullGameData);
+        
+        if(saveUsers()) {
+            tip(`💾 自动保存成功 [${new Date().toLocaleTimeString()}]`);
+            return true;
+        }
+        return false;
+        
+    } catch(e) {
+        console.error('保存游戏失败:', e);
+        tip('⚠️ 保存失败，请重试');
+        return false;
+    }
+}
+
+function loadGame(data) {
+    if(!data || !window.game) return false;
+    
+    try {
+        // 版本兼容性检查
+        const version = data.version || '0.9';
+        if(version !== '1.0') {
+            console.log('存档版本不同，尝试兼容加载');
+        }
+        
+        // 加载玩家数据
+        if(data.player) {
+            Object.assign(window.game.player, data.player);
+        }
+        
+        // 加载技能数据
+        if(data.skills) {
+            window.game.skills = {...window.game.skills, ...data.skills};
+        }
+        
+        // 加载储物系统
+        if(data.storage) {
+            window.game.storage = {...window.game.storage, ...data.storage};
+        }
+        
+        // 加载炼丹系统
+        if(data.alchemy) {
+            window.game.alchemy = {...window.game.alchemy, ...data.alchemy};
+        }
+        
+        // 加载锻造系统
+        if(data.forge) {
+            window.game.forge = {...window.game.forge, ...data.forge};
+        }
+        
+        // 加载洞府系统
+        if(data.cave) {
+            window.game.cave = {...window.game.cave, ...data.cave};
+        }
+        
+        // 加载其他设置
+        if(data.musicEnabled !== undefined) {
+            window.game.musicEnabled = data.musicEnabled;
+        }
+        
+        // 更新UI
+        if(window.game.updateUI) window.game.updateUI();
+        if(window.game.updateSpellMenu) window.game.updateSpellMenu();
+        if(window.game.initStorage) window.game.initStorage();
+        
+        // 更新境界显示
+        const realms = [
+            '煉氣期一層', '煉氣期二層', '煉氣期三層',
+            '煉氣期四層', '煉氣期五層', '煉氣期六層',
+            '築基期前期', '築基期中期', '築基期後期',
+            '金丹期', '元嬰期', '化神期'
+        ];
+        const realmBadge = document.getElementById('realmBadge');
+        if(realmBadge) {
+            realmBadge.textContent = realms[window.game.player.realm] || '飛升境';
+        }
+        
+        if(window.game.addLog) {
+            window.game.addLog(`存档载入成功！欢迎回来，${data.username || '道友'}`, 'system');
+            const lastSaveTime = data.lastSave ? new Date(data.lastSave).toLocaleString() : '未知';
+            window.game.addLog(`上次保存时间：${lastSaveTime}`, 'system');
+        }
+        
+        return true;
+        
+    } catch(e) {
+        console.error('加载存档失败:', e);
+        if(window.game?.addLog) {
+            window.game.addLog('存档加载出现问题，使用默认数据', 'system');
+        }
+        return false;
+    }
+}
+
+// 自动保存 - 每30秒
+let autoSaveInterval = setInterval(() => { 
+    if(currentUser && window.game) {
+        saveGame(); 
+    }
+}, 30000);
+
+// 离开页面时保存
+window.addEventListener('beforeunload', (e) => {
+    if(currentUser && window.game) {
+        saveGame();
+    }
+});
+
+// 清理函数（可选）
+function clearAutoSave() {
+    if(autoSaveInterval) {
+        clearInterval(autoSaveInterval);
+        autoSaveInterval = null;
+    }
+}
+
+/* ===== 登录 / 游客 / 退出 ===== */
+function handleLogin(e){
+  e.preventDefault();
+  const fd = new FormData(document.getElementById('loginForm'));
+  const u = (fd.get('username')||'').toString().trim();
+  const p = (fd.get('password')||'').toString();
+  if(!u || !p) return alert('请输入道号与密码');
+
+  if(!users[u]) users[u] = { password:p, gameData: { ...gameState, username:u }, createTime:Date.now() };
+  else if(users[u].password !== p) return alert('密码错误');
+
+  currentUser = u;
+  gameState = users[u].gameData || { ...gameState, username:u };
+  if(document.getElementById('rememberMe').checked) localStorage.setItem('rememberedUser', u);
+  enterGameSafe();
+  cloudLoad(u).then(d => { 
+    if (d) loadGame(d);
+  });
+  const bgm = document.getElementById('bgmMain');
+  if (bgm) {
+    bgm.play().catch(err => console.log("音乐未能播放：", err));
+    }
+  if (users[u]?.gameData) {
+    loadGame(users[u].gameData);
+    }
+  return false;
+}
+
+function guestLogin(){
+  const u = 'Guest_' + Math.floor(Math.random()*10000);
+  if (!users[u]) users[u] = { password: '', gameData: null, createTime: Date.now() };
+  currentUser = u;
+  gameState = { ...(gameState||{}), username: u };
+  enterGameSafe();
+}
+
+function logout(){
+  saveGame();
+  currentUser = null;
+  document.querySelector('.logout-btn').style.display='none';
+  document.getElementById('loginMask').style.display='flex';
+}
+
+/* ===== 账号列表 ===== */
+function toggleUserList(){
+  const box = document.getElementById('userList');
+  if(box.style.display==='block'){ box.style.display='none'; return; }
+  box.innerHTML = '';
+  const names = Object.keys(users);
+  if(names.length===0){ box.innerHTML='<div style="color:#9aa0aa">暂无账号</div>'; box.style.display='block'; return; }
+  names.forEach(n=>{
+    const w=document.createElement('div'); w.className='user-item';
+    w.innerHTML = `<div><div style="font-weight:700">${n}</div>
+                   <div style="font-size:12px;color:#9aa0aa">境界：${users[n].gameData?.realm||1} 层</div></div>
+                   <div><button onclick="quickLogin('${n}')">登录</button>
+                   <button onclick="delUser('${n}')">删除</button></div>`;
+    box.appendChild(w);
+  });
+  box.style.display='block';
+}
+function quickLogin(name){
+  const p = prompt('请输入密码'); if(!p) return;
+  if(users[name]?.password === p){ currentUser=name; gameState=users[name].gameData; enterGameSafe(); }
+  else alert('密码错误');
+}
+function delUser(name){ if(confirm(`确定删除「${name}」？`)){ delete users[name]; saveUsers(); toggleUserList(); toggleUserList(); } }
+
+/* ===== 进入游戏（稳定版） ===== */
+function enterGameSafe(){
+  document.getElementById('loginMask').style.display='none';
+  document.querySelector('.logout-btn').style.display='inline-block';
+  try{ saveUsers(); }catch{}
+  if (currentUser) {
+  cloudLoad(currentUser)
+    .then(d => {
+      if (d) {
+        loadGame(d);                 // 先用云端
+      } else if (users[currentUser]?.gameData) {
+        loadGame(users[currentUser].gameData); // 没有→用本地
+      }
+    })
+    .catch(err => {
+      console.warn("云端读取失败，改用本地：", err);
+      if (users[currentUser]?.gameData) {
+        loadGame(users[currentUser].gameData);
+      }
+    });
+}
+
+  if(typeof window.initAfterLogin === 'function'){ try{ initAfterLogin(gameState); }catch(e){ console.error(e); } }
+  else {
+    let c=document.getElementById('gameCanvas');
+    if(!c){ c=document.createElement('canvas'); c.id='gameCanvas'; c.width=innerWidth; c.height=innerHeight; document.body.appendChild(c); }
+    const ctx=c.getContext('2d'); ctx.fillStyle='#223'; ctx.fillRect(0,0,c.width,c.height);
+    ctx.fillStyle='#0f0'; ctx.font='24px sans-serif'; ctx.fillText('登录成功：'+(gameState.username||''), 20, 40);
+  }
+}
+
+/* ===== 登录界面键盘屏蔽，防止游戏热键干扰 ===== */
+window.addEventListener('keydown', function keyBlocker(e){
+  if(document.getElementById('loginMask')?.style.display!=='none'){ e.stopImmediatePropagation(); }
+  else window.removeEventListener('keydown', keyBlocker, true);
+}, true);
+
+/* ===== 初始化：填充记住的道号 ===== */
+document.addEventListener('DOMContentLoaded', ()=>{
+  const remembered = localStorage.getItem('rememberedUser');
+  if(remembered){ document.getElementById('username').value = remembered; document.getElementById('rememberMe').checked = true; }
+});
+</script>
+</body>
+</html>
