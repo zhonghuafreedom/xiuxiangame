@@ -955,7 +955,11 @@
         }
     </style>
 </head>
+
 <body>
+  <script>
+    let users = []; // 定义全局变量，避免 ReferenceError
+  </script>
     <!-- 旋轉屏幕提示 -->
     <div class="rotate-screen">
         <div class="rotate-icon">📱</div>
@@ -4096,6 +4100,60 @@ window.cloudLoad = cloudLoad;
 // ====== 单账号 + 自动云存档 ======
 const LS_USER   = 'xiuxian_user';
 const LS_SECRET = 'xiuxian_secret';
+const SAVE_INTERVAL_MS = 60_000;
+// —— 本地镜像：把当前账号的档案也写到 localStorage，方便多账号切换 ——
+  function writeLocalMirror(user, data) {
+    try {
+      const map = JSON.parse(localStorage.getItem('users') || '{}');
+      map[user] = data || {};
+      localStorage.setItem('users', JSON.stringify(map));
+    } catch (e) {
+      console.warn('[local] mirror write failed:', e);
+    }
+  }
+  // 兼容旧调用
+window.writeLocalMirror = writeLocalMirror;
+window._writeLocalMirror = writeLocalMirror;
+function writeLocalMirror(user, data) {
+  try {
+    const map = JSON.parse(localStorage.getItem('users') || '{}');
+    map[user] = data || {};
+    localStorage.setItem('users', JSON.stringify(map));
+  } catch (e) {
+    console.warn('[local] mirror write failed:', e);
+  }
+}
+
+// 兼容旧代码：把函数挂到全局（有些地方还用这些名字）
+window.writeLocalMirror = writeLocalMirror;
+window._writeLocalMirror = writeLocalMirror;
+
+// 兼容旧按钮：实现一个 saveUsers()
+async function saveUsers() {
+  try {
+    const u = localStorage.getItem('xiuxian_user')   || '';
+    const s = localStorage.getItem('xiuxian_secret') || '';
+    if (!u || !s) { alert('請先在登入框填好【道号/符密码】'); return; }
+
+    const data = (typeof exportGameState === 'function') ? exportGameState() : null;
+    if (!data) { alert('沒有可保存的資料'); return; }
+
+    // 先本地镜像，方便多账号切换
+    writeLocalMirror(u, data);
+
+    // 再云保存
+    const r = await cloudSave(u, s, data);
+    if (!r?.ok) throw new Error('cloud save not ok');
+
+    console.log('[cloud] save ok:', r.updatedAt ?? r);
+    alert('保存成功');
+  } catch (err) {
+    console.warn('[cloud] saveUsers failed:', err);
+    alert('保存失敗');
+  }
+}
+window.saveUsers = saveUsers;
+
 
 setInterval(async () => {
   try {
@@ -4218,7 +4276,6 @@ function readLocal(user) {
 })();
 
 // 每 60s 自动保存一次（确保整站仅此一处 setInterval）
-const SAVE_INTERVAL_MS = 60_000;
 setInterval(async () => {
   try {
     const u = localStorage.getItem(LS_USER) || '';
