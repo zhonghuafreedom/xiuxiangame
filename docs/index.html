@@ -4027,6 +4027,7 @@ const $btnSave  = document.getElementById('btnSave');
 (function restoreCreds() {
   try {
     const u = localStorage.getItem(LS_USER) || '';
+    const LS_USERS  = 'xiuxian_users';
     const s = localStorage.getItem(LS_SECRET) || '';
     if ($user)   $user.value = u;
     if ($secret) $secret.value = s;
@@ -4206,7 +4207,7 @@ function readLocal(user) {
     const data = await cloudLoad(u, s);
     if (data && typeof importGameState === 'function') {
       importGameState(data);
-      _writeLocalMirror(user, data);
+      _writeLocalMirror(u, data);
       console.log('[cloud] auto load ok:', data);
     }
   } catch (err) {
