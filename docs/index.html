@@ -4169,7 +4169,33 @@ window.addEventListener('beforeunload', () => {
 // ===== 自动云存档（跨设备） =====
 const LS_USER   = 'xiuxian_user';
 const LS_SECRET = 'xiuxian_secret';
+function _writeLocalMirror(user, data) {
+  try {
+    const users = JSON.parse(localStorage.getItem(LS_USERS)) || {};
+    users[user] = data || {};
+    localStorage.setItem(LS_USERS, JSON.stringify(users));
+  } catch (e) {
+    console.warn("写入本地镜像失败", e);
+  }
+}
+// ===== 本地镜像工具（用于兼容你原来的本地存档结构） =====
 
+function _writeLocalMirror(user, data) {
+  try {
+    const map = JSON.parse(localStorage.getItem(LS_USERS) || '{}');
+    map[user] = data || {};
+    localStorage.setItem(LS_USERS, JSON.stringify(map));
+  } catch (e) {}
+}
+
+function readLocal(user) {
+  try {
+    const map = JSON.parse(localStorage.getItem(LS_USERS) || '{}');
+    return map[user] || null;
+  } catch (e) {
+    return null;
+  }
+}
 // 启动自动加载（如果本地已经存过账号+密钥）
 (async function autoCloudBoot() {
   try {
