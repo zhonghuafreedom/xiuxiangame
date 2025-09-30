@@ -3973,34 +3973,38 @@ document.addEventListener('touchend', (e) => {
 
 <script>
 /* ===== 数据与工具 ===== */
-const LS_USERS = 'xiuxian_users';
-const API_BASE = 'https://xiuxiangame.onrender.com';
+ const LS_USERS = 'xiuxian_users';
+  const API_BASE = 'https://xiuxiangame.onrender.com';
 
-async function cloudSave(user, secret, data) {
-  try {
-    const res = await fetch(`${API_BASE}/api/save`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user, secret, data })
-    });
-    return await res.json();
-  } catch (err) {
-    console.warn("Save failed:", err);
-    return { ok: false };
+  async function cloudSave(user, secret, data) {
+    try {
+      const res = await fetch(`${API_BASE}/api/save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user, secret, data })
+      });
+      return await res.json();
+    } catch (err) {
+      console.warn('Save failed:', err);
+      return { ok: false };
+    }
   }
-}
 
-async function cloudLoad(user, secret) {
-  try {
-    const res = await fetch(
-      `${API_BASE}/api/load?user=${encodeURIComponent(user)}&secret=${encodeURIComponent(secret)}`
-    );
-    return await res.json();
-  } catch (err) {
-    console.warn("Load failed:", err);
-    return null;
+  async function cloudLoad(user, secret) {
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/load?user=${encodeURIComponent(user)}&secret=${encodeURIComponent(secret)}`
+      );
+      return await res.json();
+    } catch (err) {
+      console.warn('Load failed:', err);
+      return null;
+    }
   }
-}
+
+  // 👇 把函数挂到 window 上，方便控制台调用
+  window.cloudSave = cloudSave;
+  window.cloudLoad = cloudLoad;
 let users = JSON.parse(localStorage.getItem(LS_USERS) || '{}');
 let currentUser = null;
 let gameState = null;
