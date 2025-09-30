@@ -1,86 +1,62 @@
-// server.js
-import express from "express";
-import sqlite3 from "sqlite3";
-import bodyParser from "body-parser";
-import cors from "cors";
+// backend/server.js
+const express = require('express');
+const cors = require('cors');
+const bodyParser = require('body-parser');
+const dotenv = require('dotenv');
+
+// 加载环境变量
+dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
-
-// === 中间件 ===
 app.use(cors());
 app.use(bodyParser.json());
 
-// === 数据库初始化 ===
-const db = new sqlite3.Database("game.db");
+// 数据存储（临时内存版，重启会丢失）
+const saves = {};
 
-db.serialize(() => {
-  db.run(
-    `CREATE TABLE IF NOT EXISTS saves (
-        user   TEXT NOT NULL,
-        secret TEXT NOT NULL,
-        data   TEXT,
-        updatedAt INTEGER,
-        PRIMARY KEY (user, secret)
-    )`
-  );
-});
+// ================== API 路由 ==================
 
-// === 保存存档 ===
-app.post("/api/save", (req, res) => {
-  const { user, secret, data } = req.body;
-  if (!user || !secret) {
-    return res.status(400).json({ error: "Missing user or secret" });
-  }
-
-  const updatedAt = Date.now();
-  db.run(
-    `INSERT INTO saves (user, secret, data, updatedAt)
-     VALUES (?, ?, ?, ?)
-     ON CONFLICT(user, secret)
-     DO UPDATE SET data = excluded.data, updatedAt = excluded.updatedAt`,
-    [user, secret, JSON.stringify(data || {}), updatedAt],
-    function (err) {
-      if (err) {
-        console.error("DB save error:", err);
-        return res.status(500).json({ error: "DB error" });
-      }
-      res.json({ ok: true, updatedAt });
+// 保存
+app.post('/api/save', (req, res) => {
+  try {
+    const { user, secret, data } = req.body;
+    if (!user || !secret) {
+      return res.status(400).json({ ok: false, error: '缺少 user 或 secret' });
     }
-  );
-});
-
-// === 读取存档 ===
-app.get("/api/load", (req, res) => {
-  const { user, secret } = req.query;
-  if (!user || !secret) {
-    return res.status(400).json({ error: "Missing user or secret" });
+    const key = `${user}::${secret}`;
+    saves[key] = {
+      updatedAt: new Date().toISOString(),
+      data: data || {}
+    };
+    console.log('[SAVE]', key);
+    res.json({ ok: true, updatedAt: saves[key].updatedAt });
+  } catch (err) {
+    console.error('Save error:', err);
+    res.status(500).json({ ok: false, error: '服务器错误' });
   }
+});
 
-  db.get(
-    `SELECT data FROM saves WHERE user = ? AND secret = ?`,
-    [user, secret],
-    (err, row) => {
-      if (err) {
-        console.error("DB load error:", err);
-        return res.status(500).json({ error: "DB error" });
-      }
-      if (!row) return res.json(null);
-      try {
-        res.json(JSON.parse(row.data));
-      } catch (e) {
-        res.json({});
-      }
+// 读取
+app.get('/api/load', (req, res) => {
+  try {
+    const { user, secret } = req.query;
+    if (!user || !secret) {
+      return res.status(400).json({ ok: false, error: '缺少 user 或 secret' });
     }
-  );
+    const key = `${user}::${secret}`;
+    const record = saves[key];
+    if (!record) {
+      return res.json({ ok: false, error: '没有找到存档' });
+    }
+    res.json({ ok: true, ...record });
+  } catch (err) {
+    console.error('Load error:', err);
+    res.status(500).json({ ok: false, error: '服务器错误' });
+  }
 });
 
-// === 健康检查 ===
-app.get("/health", (req, res) => {
-  res.send("ok");
-});
-
-// === 启动服务 ===
+// ================== 监听端口 ==================
+const PORT = process.env.PORT || 4322;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`✅ Server running on port ${PORT}`);
 });
