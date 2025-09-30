@@ -4093,7 +4093,78 @@ $btnSave?.addEventListener('click', handleSave);
 // 如果你希望在控制台也能直接调试：
 window.cloudSave = cloudSave;
 window.cloudLoad = cloudLoad;
+// —— 本地镜像辅助：把云存档写回老的本地结构（供旧逻辑继续使用） ——
+// 旧代码里用的“所有用户存档”的键
+function writeLocalMirror(user, data) {
+  try {
+    const users = JSON.parse(localStorage.getItem(LS_USERS) || '{}');
+    users[user] = data || {};
+    localStorage.setItem(LS_USERS, JSON.stringify(users));
+  } catch {}
+}
+function readLocal(user) {
+  try {
+    const users = JSON.parse(localStorage.getItem(LS_USERS) || '{}');
+    return users[user] || null;
+  } catch { return null; }
+}
 
+// —— 启动优先读取云端；若云端无 -> 用本地；若本地有而云端无 -> 迁移到云端 ——
+(async function bootWithCloudPriority(){
+  const user   = localStorage.getItem('xiuxian_user')   || prompt('输入道号（user）：');
+  const secret = localStorage.getItem('xiuxian_secret') || prompt('输入符密码（secret）：');
+  if (!user || !secret) return;
+  localStorage.setItem('xiuxian_user', user);
+  localStorage.setItem('xiuxian_secret', secret);
+
+  let cloud = null;
+  try { cloud = await cloudLoad(user, secret); } catch {}
+
+  if (cloud && typeof importGameState === 'function') {
+    importGameState(cloud);        // 用云的
+    writeLocalMirror(user, cloud); // 同步回本地，旧逻辑可读
+    console.log('[cloud] loaded & mirrored to local');
+  } else {
+    const local = readLocal(user); // 云没有就看本地有没有
+    if (local) {
+      // 本地 -> 云端（首登迁移）
+      try {
+        await cloudSave(user, secret, local);
+        console.log('[cloud] migrated local -> cloud');
+      } catch {}
+      if (typeof importGameState === 'function') importGameState(local);
+    } else {
+      console.log('[cloud] no cloud, no local: start fresh');
+    }
+  }
+})();
+
+// —— 每次保存同时写云端与本地（保证两边一致） ——
+async function saveBoth() {
+  const user   = localStorage.getItem('xiuxian_user');
+  const secret = localStorage.getItem('xiuxian_secret');
+  if (!user || !secret || typeof exportGameState !== 'function') return;
+  const data = exportGameState();
+  writeLocalMirror(user, data);         // 本地镜像
+  try { await cloudSave(user, secret, data); } catch {}
+  console.log('[cloud] saved both');
+}
+
+// 你原来的保存按钮可以直接改为：$btnSave?.addEventListener('click', saveBoth);
+
+// —— 兜底：定时与离开时也同步到云 + 本地 ——
+setInterval(saveBoth, 60_000);
+window.addEventListener('beforeunload', () => {
+  try {
+    const user   = localStorage.getItem('xiuxian_user');
+    const secret = localStorage.getItem('xiuxian_secret');
+    if (!user || !secret || typeof exportGameState !== 'function') return;
+    const data = exportGameState();
+    writeLocalMirror(user, data);
+    const payload = JSON.stringify({ user, secret, data });
+    navigator.sendBeacon(`${API_BASE}/api/save`, new Blob([payload], { type: 'application/json' }));
+  } catch {}
+});
 // ===== 自动云存档（跨设备） =====
 const LS_USER   = 'xiuxian_user';
 const LS_SECRET = 'xiuxian_secret';
