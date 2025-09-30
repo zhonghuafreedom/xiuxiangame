@@ -3973,7 +3973,6 @@ document.addEventListener('touchend', (e) => {
 
 <script>
 /* ===== 数据与工具 ===== */
- const LS_USERS = 'xiuxian_users';
   const API_BASE = 'https://xiuxiangame.onrender.com';
 
   async function cloudSave(user, secret, data) {
@@ -4027,7 +4026,6 @@ const $btnSave  = document.getElementById('btnSave');
 (function restoreCreds() {
   try {
     const u = localStorage.getItem(LS_USER) || '';
-    const LS_USERS  = 'xiuxian_users';
     const s = localStorage.getItem(LS_SECRET) || '';
     if ($user)   $user.value = u;
     if ($secret) $secret.value = s;
@@ -4051,7 +4049,6 @@ async function handleLogin() {
     const data = await cloudLoad(user, secret);
     if (data) {
       if (typeof importGameState === 'function') importGameState(data);
-      _writeLocalMirror(user, data);
       console.log('[cloud] load ok:', data);
       alert('云存档加载成功！');
       // TODO: enterGame();
@@ -4092,24 +4089,49 @@ async function handleSave() {
 $btnLogin?.addEventListener('click', handleLogin);
 $btnSave?.addEventListener('click', handleSave);
 
+
 // 如果你希望在控制台也能直接调试：
 window.cloudSave = cloudSave;
 window.cloudLoad = cloudLoad;
+// ====== 单账号 + 自动云存档 ======
+const LS_USER   = 'xiuxian_user';
+const LS_SECRET = 'xiuxian_secret';
+
+setInterval(async () => {
+  try {
+    const u = localStorage.getItem(LS_USER)   || '';
+    const s = localStorage.getItem(LS_SECRET) || '';
+    if (!u || !s) return;
+
+    const data = (typeof exportGameState === 'function') ? exportGameState() : null; // 用你的导出函数拿当前进度
+    if (!data) return;
+
+    const r = await cloudSave(u, s, data);
+    if (!r?.ok) throw new Error('save not ok');
+    console.log('[cloud] auto save ok:', r.updatedAt ?? r);
+  } catch (err) {
+    console.warn('[cloud] auto save failed:', err);
+  }
+}, SAVE_INTERVAL_MS);
+
+// 关闭页面前兜底保存（不阻塞页面关闭）
+window.addEventListener('beforeunload', () => {
+  try {
+    const u = localStorage.getItem(LS_USER)   || '';
+    const s = localStorage.getItem(LS_SECRET) || '';
+    if (!u || !s || typeof exportGameState !== 'function') return;
+
+    const data = exportGameState();
+    if (!data) return;
+
+    // 这里复用你上面定义的 API_BASE（你文件里已有）
+    const url = `${API_BASE}/api/save`;
+    const payload = JSON.stringify({ user: u, secret: s, data });
+    navigator.sendBeacon(url, new Blob([payload], { type: 'application/json' }));
+  } catch {}
+});
 // —— 本地镜像辅助：把云存档写回老的本地结构（供旧逻辑继续使用） ——
 // 旧代码里用的“所有用户存档”的键
-function writeLocalMirror(user, data) {
-  try {
-    const users = JSON.parse(localStorage.getItem(LS_USERS) || '{}');
-    users[user] = data || {};
-    localStorage.setItem(LS_USERS, JSON.stringify(users));
-  } catch {}
-}
-function readLocal(user) {
-  try {
-    const users = JSON.parse(localStorage.getItem(LS_USERS) || '{}');
-    return users[user] || null;
-  } catch { return null; }
-}
 
 // —— 启动优先读取云端；若云端无 -> 用本地；若本地有而云端无 -> 迁移到云端 ——
 (async function bootWithCloudPriority(){
@@ -4168,30 +4190,10 @@ window.addEventListener('beforeunload', () => {
   } catch {}
 });
 // ===== 自动云存档（跨设备） =====
-const LS_USER   = 'xiuxian_user';
-const LS_SECRET = 'xiuxian_secret';
-function _writeLocalMirror(user, data) {
-  try {
-    const users = JSON.parse(localStorage.getItem(LS_USERS)) || {};
-    users[user] = data || {};
-    localStorage.setItem(LS_USERS, JSON.stringify(users));
-  } catch (e) {
-    console.warn("写入本地镜像失败", e);
-  }
-}
 // ===== 本地镜像工具（用于兼容你原来的本地存档结构） =====
-
-function _writeLocalMirror(user, data) {
-  try {
-    const map = JSON.parse(localStorage.getItem(LS_USERS) || '{}');
-    map[user] = data || {};
-    localStorage.setItem(LS_USERS, JSON.stringify(map));
-  } catch (e) {}
-}
 
 function readLocal(user) {
   try {
-    const map = JSON.parse(localStorage.getItem(LS_USERS) || '{}');
     return map[user] || null;
   } catch (e) {
     return null;
@@ -4249,7 +4251,6 @@ window.addEventListener('beforeunload', () => {
     navigator.sendBeacon(url, new Blob([payload], { type: 'application/json' }));
   } catch {}
 });
-let users = JSON.parse(localStorage.getItem(LS_USERS) || '{}');
 let currentUser = null;
 let gameState = null;
 
@@ -4264,18 +4265,6 @@ const tip = m => {
 const playClick = () => document.getElementById('sfxClick')?.play().catch(() => {});
 
 /* ===== 存档系统 ===== */
-function saveUsers() { 
-    try {
-        localStorage.setItem(LS_USERS, JSON.stringify(users)); 
-        return true;
-    } catch(e) {
-        console.error('保存用户数据失败:', e);
-        if(e.name === 'QuotaExceededError') {
-            tip('⚠️ 存储空间不足，请清理浏览器缓存');
-        }
-        return false;
-    }
-}
 
 function saveGame() { 
     if(!currentUser || !users[currentUser] || !window.game) {
